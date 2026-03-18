@@ -52,7 +52,7 @@ export function startBinanceConnector(writer: ReturnType<typeof createBufferedWr
             event_ts: msg.E,
             price: parseFloat(msg.p),
             qty: parseFloat(msg.q),
-            is_buyer_maker: msg.m,
+            is_buyer_maker: msg.m ? 1 : 0,
             trade_id: msg.t,
           }});
           return;
