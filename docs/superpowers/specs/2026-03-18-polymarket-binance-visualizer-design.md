@@ -97,7 +97,7 @@ CREATE TABLE poly_prices (
   token_id TEXT NOT NULL,
   side TEXT NOT NULL,               -- 'up' | 'down'
   price REAL NOT NULL,
-  event_type TEXT NOT NULL          -- 'price_change' | 'last_trade_price'
+  event_type TEXT NOT NULL          -- 'price_change' | 'last_trade_price' | 'best_bid_ask'
 );
 
 -- Binance 최우선 호가 (bookTicker)
