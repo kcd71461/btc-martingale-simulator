@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Polymarket-Binance BTC Visualizer</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace; background: #0a0a0a; color: #e0e0e0; padding: 16px; }
+    .controls { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; padding: 12px; background: #1a1a1a; border-radius: 8px; }
+    .controls label { font-size: 13px; }
+    .controls select, .controls input, .controls button { background: #2a2a2a; color: #e0e0e0; border: 1px solid #444; padding: 4px 8px; border-radius: 4px; font-size: 13px; }
+    .controls button { cursor: pointer; }
+    .controls button:hover { background: #3a3a3a; }
+    .controls button.active { background: #1a6b3a; border-color: #2a8b4a; }
+    .radio-group { display: flex; gap: 4px; }
+    .radio-group label { padding: 4px 10px; border: 1px solid #444; border-radius: 4px; cursor: pointer; font-size: 13px; }
+    .radio-group input { display: none; }
+    .radio-group input:checked + span { color: #4ae68a; }
+    .radio-group label:has(input:checked) { background: #1a3a2a; border-color: #2a8b4a; }
+    .chart-container { background: #1a1a1a; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+    .chart-container h3 { font-size: 14px; margin-bottom: 8px; color: #888; }
+    canvas { width: 100% !important; }
+    .spread-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .spread-card { background: #1a1a1a; border-radius: 8px; padding: 16px; }
+    .spread-card h3 { font-size: 14px; color: #888; margin-bottom: 12px; }
+    .spread-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 14px; }
+    .ask { color: #e55; }
+    .bid { color: #4e4; }
+    .spread-val { color: #aaa; font-size: 12px; }
+    .status { font-size: 12px; color: #666; }
+    .fallback-badge { background: #553300; color: #ffaa44; font-size: 11px; padding: 2px 6px; border-radius: 3px; margin-left: 6px; display: none; }
+    .correlation-peak { font-size: 13px; color: #4ae68a; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="controls">
+    <label>Time Range:
+      <select id="range">
+        <option value="300000">5 min</option>
+        <option value="900000" selected>15 min</option>
+        <option value="3600000">1 hour</option>
+        <option value="21600000">6 hours</option>
+      </select>
+    </label>
+    <div class="radio-group">
+      <label><input type="radio" name="timebase" value="local" checked><span>Local Time</span></label>
+      <label><input type="radio" name="timebase" value="server"><span>Server Time</span></label>
+    </div>
+    <button id="refreshBtn" onclick="fetchAll()">Refresh</button>
+    <button id="autoBtn" onclick="toggleAuto()">Auto: OFF</button>
+    <span class="status" id="status">Ready</span>
+  </div>
+
+  <div class="chart-container">
+    <h3>Price Overlay — Binance BTC (left) vs Polymarket Up Probability (right)</h3>
+    <canvas id="priceChart" height="300"></canvas>
+  </div>
+
+  <div class="spread-grid">
+    <div class="spread-card">
+      <h3>Binance BTCUSDT Spread<span id="bncFallback" class="fallback-badge">local_ts fallback</span></h3>
+      <div class="spread-row ask">Ask: <span id="bncAsk">—</span></div>
+      <div class="spread-row bid">Bid: <span id="bncBid">—</span></div>
+      <div class="spread-row spread-val">Spread: <span id="bncSpread">—</span></div>
+    </div>
+    <div class="spread-card">
+      <h3>Polymarket Up Spread</h3>
+      <div class="spread-row ask">Ask: <span id="polyAsk">—</span></div>
+      <div class="spread-row bid">Bid: <span id="polyBid">—</span></div>
+      <div class="spread-row spread-val">Spread: <span id="polySpread">—</span></div>
+    </div>
+  </div>
+
+  <div class="chart-container">
+    <h3>Cross-Correlation (Binance vs Polymarket, lag -30s to +30s)</h3>
+    <canvas id="corrChart" height="250"></canvas>
+    <div class="correlation-peak" id="peakInfo">—</div>
+  </div>
+
+<script>
+  let autoInterval = null;
+  let priceChart = null;
+  let corrChart = null;
+
+  function getTimebase() {
+    return document.querySelector('input[name="timebase"]:checked').value;
+  }
+
+  function getRange() {
+    return parseInt(document.getElementById('range').value);
+  }
+
+  function toggleAuto() {
+    const btn = document.getElementById('autoBtn');
+    if (autoInterval) {
+      clearInterval(autoInterval);
+      autoInterval = null;
+      btn.textContent = 'Auto: OFF';
+      btn.classList.remove('active');
+    } else {
+      autoInterval = setInterval(fetchAll, 5000);
+      btn.textContent = 'Auto: ON';
+      btn.classList.add('active');
+      fetchAll();
+    }
+  }
+
+  async function fetchAll() {
+    const status = document.getElementById('status');
+    status.textContent = 'Fetching...';
+    try {
+      await Promise.all([fetchPriceData(), fetchSpreadData(), fetchCorrelation()]);
+      status.textContent = 'Updated ' + new Date().toLocaleTimeString();
+    } catch (e) {
+      status.textContent = 'Error: ' + e.message;
+    }
+  }
+
+  async function fetchPriceData() {
+    const now = Date.now();
+    const from = now - getRange();
+    const timebase = getTimebase();
+    const res = await fetch(`/api/data?from=${from}&to=${now}&timebase=${timebase}`);
+    const data = await res.json();
+    renderPriceChart(data);
+  }
+
+  function renderPriceChart(data) {
+    const ctx = document.getElementById('priceChart').getContext('2d');
+
+    const bncPoints = data.binance.map(r => ({ x: r.ts, y: r.price }));
+    const polyPoints = data.polymarket
+      .filter(r => r.side === 'up')
+      .map(r => ({ x: r.ts, y: r.price }));
+
+    if (priceChart) priceChart.destroy();
+
+    priceChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        datasets: [
+          {
+            label: 'Binance BTC Price',
+            data: bncPoints,
+            borderColor: '#f7931a',
+            backgroundColor: 'rgba(247,147,26,0.1)',
+            yAxisID: 'yBnc',
+            pointRadius: 0,
+            borderWidth: 1.5,
+          },
+          {
+            label: 'Polymarket Up Prob',
+            data: polyPoints,
+            borderColor: '#4ae68a',
+            backgroundColor: 'rgba(74,230,138,0.1)',
+            yAxisID: 'yPoly',
+            pointRadius: 0,
+            borderWidth: 1.5,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        interaction: { mode: 'index', intersect: false },
+        scales: {
+          x: {
+            type: 'time',
+            time: { tooltipFormat: 'HH:mm:ss' },
+            ticks: { color: '#666' },
+            grid: { color: '#222' },
+          },
+          yBnc: {
+            position: 'left',
+            ticks: { color: '#f7931a' },
+            grid: { color: '#222' },
+            title: { display: true, text: 'BTC (USD)', color: '#f7931a' },
+          },
+          yPoly: {
+            position: 'right',
+            min: 0, max: 1,
+            ticks: { color: '#4ae68a' },
+            grid: { display: false },
+            title: { display: true, text: 'Up Prob', color: '#4ae68a' },
+          },
+        },
+        plugins: { legend: { labels: { color: '#aaa' } } },
+      },
+    });
+  }
+
+  async function fetchSpreadData() {
+    const now = Date.now();
+    const timebase = getTimebase();
+    const res = await fetch(`/api/bnc/books?from=${now - 60000}&to=${now}&timebase=${timebase}`);
+    const data = await res.json();
+
+    document.getElementById('bncFallback').style.display =
+      data.tickerTimebaseFallback ? 'inline' : 'none';
+
+    if (data.tickers.length > 0) {
+      const t = data.tickers[data.tickers.length - 1];
+      document.getElementById('bncBid').textContent = '$' + t.bid_price.toLocaleString();
+      document.getElementById('bncAsk').textContent = '$' + t.ask_price.toLocaleString();
+      document.getElementById('bncSpread').textContent = '$' + (t.ask_price - t.bid_price).toFixed(2);
+    }
+
+    const polyRes = await fetch(`/api/poly/books?from=${now - 60000}&to=${now}&timebase=${timebase}`);
+    const polyData = await polyRes.json();
+    const upBooks = polyData.rows.filter(r => r.side === 'up');
+    if (upBooks.length > 0) {
+      const b = upBooks[upBooks.length - 1];
+      document.getElementById('polyBid').textContent = b.best_bid?.toFixed(3) ?? '—';
+      document.getElementById('polyAsk').textContent = b.best_ask?.toFixed(3) ?? '—';
+      document.getElementById('polySpread').textContent =
+        (b.best_ask && b.best_bid) ? (b.best_ask - b.best_bid).toFixed(3) : '—';
+    }
+  }
+
+  async function fetchCorrelation() {
+    const now = Date.now();
+    const from = now - getRange();
+    const timebase = getTimebase();
+    const res = await fetch(`/api/correlation?from=${from}&to=${now}&timebase=${timebase}&lag_range=30000&step=1000`);
+    const data = await res.json();
+    renderCorrChart(data);
+  }
+
+  function renderCorrChart(data) {
+    const ctx = document.getElementById('corrChart').getContext('2d');
+    const points = data.results
+      .filter(r => r.correlation !== null)
+      .map(r => ({ x: r.lag / 1000, y: r.correlation }));
+
+    if (corrChart) corrChart.destroy();
+
+    corrChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        datasets: [{
+          label: 'Cross-Correlation',
+          data: points,
+          borderColor: '#6ea8fe',
+          backgroundColor: 'rgba(110,168,254,0.1)',
+          fill: true,
+          pointRadius: 2,
+          borderWidth: 1.5,
+        }],
+      },
+      options: {
+        responsive: true,
+        scales: {
+          x: {
+            type: 'linear',
+            title: { display: true, text: 'Lag (seconds)', color: '#888' },
+            ticks: { color: '#666' },
+            grid: { color: '#222' },
+          },
+          y: {
+            min: -1, max: 1,
+            title: { display: true, text: 'Correlation', color: '#888' },
+            ticks: { color: '#666' },
+            grid: { color: '#222' },
+          },
+        },
+        plugins: { legend: { display: false } },
+      },
+    });
+
+    const validResults = data.results.filter(r => r.correlation !== null);
+    if (validResults.length > 0) {
+      const peak = validResults.reduce((a, b) => b.correlation > a.correlation ? b : a);
+      const lagSec = (peak.lag / 1000).toFixed(1);
+      const leader = peak.lag < 0 ? 'Binance leads' : peak.lag > 0 ? 'Polymarket leads' : 'Synchronized';
+      document.getElementById('peakInfo').textContent =
+        `Peak: r=${peak.correlation.toFixed(3)} at lag=${lagSec}s (${leader})`;
+    }
+  }
+
+  document.getElementById('range').addEventListener('change', fetchAll);
+  document.querySelectorAll('input[name="timebase"]').forEach(r =>
+    r.addEventListener('change', fetchAll)
+  );
+
+  fetchAll();
+</script>
+</body>
+</html>
