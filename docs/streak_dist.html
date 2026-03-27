@@ -548,7 +548,7 @@ function scheduleRun() { clearTimeout(debounce); debounce = setTimeout(run, 200)
 const rsLeft = document.getElementById('rsLeft');
 const rsRight = document.getElementById('rsRight');
 rsLeft.addEventListener('input', () => {
-  if (+rsLeft.value >= +rsRight.value - 10) rsLeft.value = +rsRight.value - 10;
+  if (+rsLeft.value >= +rsRight.value - 10) rsLeft.value = Math.max(0, +rsRight.value - 10);
   rangeStartMs = sliderToMs(+rsLeft.value);
   updateSliderFill();
   scheduleRun();
