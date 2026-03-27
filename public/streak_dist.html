@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>BTC 5분봉 — Streak 분포: 이론 vs 실제</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', system-ui, sans-serif; }
+
+header { padding: 18px 24px 14px; border-bottom: 1px solid #21262d; }
+header h1 { font-size: 1.15rem; font-weight: 600; }
+header .sub { font-size: 0.8rem; color: #8b949e; margin-top: 4px; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 20px; padding: 14px 24px; background: #161b22; border-bottom: 1px solid #21262d; align-items: flex-end; }
+.ctrl-group { display: flex; flex-direction: column; gap: 4px; }
+.ctrl-group label { font-size: 0.72rem; color: #8b949e; text-transform: uppercase; letter-spacing: .04em; }
+
+/* range slider */
+.range-slider-wrap { padding: 8px 24px 16px; }
+.range-slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.range-slider-header span { font-size: 0.78rem; color: #58a6ff; font-weight: 600; }
+.range-slider { position: relative; height: 28px; }
+.range-slider input[type="range"] {
+  -webkit-appearance: none; pointer-events: none; position: absolute; top: 0; left: 0;
+  width: 100%; height: 28px; background: none; margin: 0; padding: 0; z-index: 3;
+}
+.range-slider input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; pointer-events: all;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #58a6ff; border: 2px solid #0d1117; cursor: grab; z-index: 5;
+}
+.range-slider input[type="range"]::-webkit-slider-runnable-track { height: 6px; background: transparent; }
+.range-track { position: absolute; top: 11px; left: 0; right: 0; height: 6px; border-radius: 3px; background: #21262d; z-index: 1; }
+.range-fill { position: absolute; top: 0; height: 100%; border-radius: 3px; background: rgba(88,166,255,0.35); z-index: 2; }
+
+/* stats */
+.stats-bar { display: flex; flex-wrap: wrap; background: #161b22; border-bottom: 1px solid #21262d; }
+.stat { flex: 1; min-width: 140px; padding: 10px 16px; border-right: 1px solid #21262d; }
+.stat:last-child { border-right: none; }
+.stat .lbl { font-size: 0.7rem; color: #8b949e; text-transform: uppercase; margin-bottom: 3px; }
+.stat .val { font-size: 1rem; font-weight: 700; }
+.green { color: #3fb950; } .red { color: #f85149; } .blue { color: #58a6ff; } .yellow { color: #d29922; }
+
+/* chart */
+.chart-wrap { padding: 20px 24px; }
+.chart-container { position: relative; height: 500px; }
+.chart-container canvas { width: 100% !important; height: 100% !important; }
+
+/* table */
+.table-wrap { padding: 0 24px 24px; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+th, td { padding: 8px 12px; border-bottom: 1px solid #21262d; text-align: right; }
+th { color: #8b949e; font-weight: 600; text-transform: uppercase; font-size: 0.7rem; }
+td:first-child, th:first-child { text-align: left; }
+.highlight { color: #f85149; font-weight: 700; }
+
+/* overlay */
+#overlay { position: fixed; inset: 0; background: rgba(13,17,23,0.92); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; z-index: 999; }
+#overlay.hidden { display: none; }
+.spinner { width: 40px; height: 40px; border: 3px solid #30363d; border-top-color: #58a6ff; border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+#overlay p { color: #8b949e; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+
+<div id="overlay">
+  <div class="spinner"></div>
+  <p id="loadingMsg">BTC 5분봉 데이터 로딩 중...</p>
+</div>
+
+<header>
+  <h1>BTC/USDT 5분봉 — Streak 발생 횟수: 이론 기댓값 vs 실제 통계</h1>
+  <div class="sub">X축: streak 길이 · Y축: 발생 횟수 · 이론 = 독립 1/2 게임 기댓값 · 실제 = 캔들 데이터 통계</div>
+</header>
+
+<div class="range-slider-wrap">
+  <div class="range-slider-header">
+    <span id="rsLabelLeft">2017-08-17</span>
+    <span style="font-size:0.72rem;color:#8b949e">기간 범위 드래그</span>
+    <span id="rsLabelRight">—</span>
+  </div>
+  <div class="range-slider">
+    <div class="range-track"><div class="range-fill" id="rsFill"></div></div>
+    <input type="range" id="rsLeft" min="0" max="1000" value="0">
+    <input type="range" id="rsRight" min="0" max="1000" value="1000">
+  </div>
+</div>
+
+<div class="stats-bar">
+  <div class="stat"><div class="lbl">선택 기간 캔들 수</div><div class="val blue" id="sCandleCount">—</div></div>
+  <div class="stat"><div class="lbl">총 streak 수 (2+)</div><div class="val blue" id="sTotalStreaks">—</div></div>
+  <div class="stat"><div class="lbl">최대 streak 길이</div><div class="val yellow" id="sMaxStreak">—</div></div>
+  <div class="stat"><div class="lbl">이론 vs 실제 가장 큰 괴리</div><div class="val red" id="sMaxDiff">—</div></div>
+</div>
+
+<div class="chart-wrap">
+  <div class="chart-container"><canvas id="mainChart"></canvas></div>
+</div>
+
+<div class="table-wrap">
+  <table id="dataTable">
+    <thead>
+      <tr>
+        <th>Streak 길이</th>
+        <th>이론 기댓값</th>
+        <th>실제 횟수</th>
+        <th>차이 (실제-이론)</th>
+        <th>비율 (실제/이론)</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════════════════════
+let allCandles = null;
+let chart = null;
+let dataStartMs = 0, dataEndMs = 0;
+let rangeStartMs = 0, rangeEndMs = 0;
+
+// ════════════════════════════════════════════════════════════════════════════
+// LOAD
+// ════════════════════════════════════════════════════════════════════════════
+async function loadData() {
+  const msg = document.getElementById('loadingMsg');
+  msg.textContent = 'BTC 5분봉 데이터 로딩 중... (최초 1회)';
+  const res = await fetch('/candles.json');
+  if (!res.ok) throw new Error('캔들 데이터 로드 실패');
+  msg.textContent = '파싱 중...';
+  allCandles = await res.json();
+  dataStartMs = allCandles[0].openTime;
+  dataEndMs = allCandles[allCandles.length - 1].openTime;
+  rangeStartMs = dataStartMs;
+  rangeEndMs = dataEndMs;
+  document.getElementById('overlay').classList.add('hidden');
+  run();
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// STREAK COUNTING (실제)
+// ════════════════════════════════════════════════════════════════════════════
+function countStreaks(candles) {
+  // streak length → count (both UP and DOWN combined)
+  const dist = {};
+  let streak = 1;
+  let dir = null;
+
+  for (let i = 1; i < candles.length; i++) {
+    const prev = candles[i - 1], curr = candles[i];
+    const d = curr.close > prev.close ? 1 : curr.close < prev.close ? -1 : 0;
+    if (d === 0) continue;
+
+    if (d === dir) {
+      streak++;
+    } else {
+      // 이전 streak 기록
+      if (dir !== null && streak >= 2) {
+        dist[streak] = (dist[streak] || 0) + 1;
+      }
+      dir = d;
+      streak = 1;
+    }
+  }
+  // 마지막 streak
+  if (dir !== null && streak >= 2) {
+    dist[streak] = (dist[streak] || 0) + 1;
+  }
+
+  return dist;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// THEORETICAL EXPECTED COUNTS (독립 1/2 게임)
+// ════════════════════════════════════════════════════════════════════════════
+// n개 캔들(방향이 있는 = 보합 제외)에서 "정확히 k연속" streak의 기댓값:
+//
+// 독립 1/2 게임에서 길이 정확히 k인 run(연속)의 기댓값:
+//   E[# of runs of exactly length k] = (n - k + 1) * (1/2)^k  (k < n일 때)
+//   단, 양쪽 끝이 다른 방향이어야 하므로 보정:
+//   내부: (n - k + 3) * (1/2)^(k+2)  (양쪽 경계 고려)
+//   실제 공식: E = (n - k - 1) * p^k * (1-p)^2 + 2 * p^k * (1-p)  (경계 보정)
+//   p = 1/2일 때: E = (n - k - 1) * (1/2)^(k+2) * 2  ...
+//
+// 간단하고 정확한 방법: 방향 2가지(UP/DOWN) 각각에 대해
+//   E[runs of exactly k for one direction] = (n-k+3) / 2^(k+2)  (approx for large n)
+//
+// 가장 정확한 공식 (양방향 합산):
+//   방향 하나: 길이 "정확히 k"인 run 수 기댓값
+//     = (1/2)^k * (1/2)^2 * (n - k - 1) + 2 * (1/2)^k * (1/2)   [내부 + 양쪽 경계]
+//     = (1/2)^(k+2) * (n - k - 1) + (1/2)^k
+//     = (1/2)^(k+2) * (n - k - 1 + 4)
+//     = (1/2)^(k+2) * (n - k + 3)
+//   양방향 합산: 2배
+//     E_total(k) = 2 * (n - k + 3) / 2^(k+2) = (n - k + 3) / 2^(k+1)
+//
+function theoreticalExpected(nDirectional, k) {
+  if (k > nDirectional) return 0;
+  return (nDirectional - k + 3) / Math.pow(2, k + 1);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// RANGE SLIDER
+// ════════════════════════════════════════════════════════════════════════════
+function sliderToMs(val) { return dataStartMs + (val / 1000) * (dataEndMs - dataStartMs); }
+function msToDateStr(ms) { return new Date(ms).toISOString().slice(0, 10); }
+
+function updateSliderFill() {
+  const l = +document.getElementById('rsLeft').value;
+  const r = +document.getElementById('rsRight').value;
+  const fill = document.getElementById('rsFill');
+  fill.style.left = (l / 10) + '%';
+  fill.style.width = ((r - l) / 10) + '%';
+  document.getElementById('rsLabelLeft').textContent = msToDateStr(sliderToMs(l));
+  document.getElementById('rsLabelRight').textContent = msToDateStr(sliderToMs(r));
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// RENDER
+// ════════════════════════════════════════════════════════════════════════════
+function run() {
+  if (!allCandles) return;
+
+  // Filter candles
+  const candles = allCandles.filter(c => c.openTime >= rangeStartMs && c.openTime <= rangeEndMs);
+  if (candles.length < 3) return;
+
+  // Count directional candles (non-flat)
+  let nDirectional = 0;
+  for (let i = 1; i < candles.length; i++) {
+    if (candles[i].close !== candles[i - 1].close) nDirectional++;
+  }
+
+  // Actual streak distribution
+  const actual = countStreaks(candles);
+
+  // Build combined data: streak lengths 2 ~ max
+  const maxActual = Math.max(...Object.keys(actual).map(Number), 2);
+  const maxK = Math.max(maxActual, 20); // show at least up to 20
+
+  const labels = [];
+  const theoreticalData = [];
+  const actualData = [];
+  let totalStreaks = 0;
+  let maxDiffK = 2, maxDiffVal = 0;
+
+  for (let k = 2; k <= maxK; k++) {
+    labels.push(k);
+    const theo = theoreticalExpected(nDirectional, k);
+    const act = actual[k] || 0;
+    theoreticalData.push(Math.round(theo * 100) / 100);
+    actualData.push(act);
+    totalStreaks += act;
+
+    const diff = Math.abs(act - theo);
+    if (diff > maxDiffVal) { maxDiffVal = diff; maxDiffK = k; }
+  }
+
+  // Stats
+  document.getElementById('sCandleCount').textContent = candles.length.toLocaleString() + '개';
+  document.getElementById('sTotalStreaks').textContent = totalStreaks.toLocaleString() + '회';
+  document.getElementById('sMaxStreak').textContent = maxActual + '연속';
+  document.getElementById('sMaxDiff').textContent = `streak ${maxDiffK}에서 ${maxDiffVal.toFixed(1)}회`;
+
+  updateSliderFill();
+
+  // Chart
+  if (chart) chart.destroy();
+
+  chart = new Chart(document.getElementById('mainChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: '이론 기댓값 (1/2 게임)',
+          data: theoreticalData,
+          backgroundColor: 'rgba(248,81,73,0.5)',
+          borderColor: '#f85149',
+          borderWidth: 1,
+          borderRadius: 3,
+          order: 2,
+        },
+        {
+          label: '실제 발생 횟수',
+          data: actualData,
+          backgroundColor: 'rgba(88,166,255,0.5)',
+          borderColor: '#58a6ff',
+          borderWidth: 1,
+          borderRadius: 3,
+          order: 1,
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#e6edf3', font: { size: 12 }, usePointStyle: true } },
+        tooltip: {
+          callbacks: {
+            title: items => `Streak ${items[0].label}연속`,
+            label: item => {
+              const v = item.parsed.y;
+              return ` ${item.dataset.label}: ${v.toLocaleString(undefined, {maximumFractionDigits: 1})}회`;
+            },
+            afterBody: items => {
+              const k = +items[0].label;
+              const theo = theoreticalData[k - 2];
+              const act = actualData[k - 2];
+              if (theo === undefined) return '';
+              const ratio = theo > 0 ? (act / theo).toFixed(2) : '—';
+              const diff = act - theo;
+              return [``, ` 차이: ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}회`, ` 비율: ${ratio}x`];
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: '#21262d' },
+          ticks: { color: '#8b949e', font: { size: 11 } },
+          title: { display: true, text: 'Streak 길이 (연속 캔들 수)', color: '#8b949e', font: { size: 11 } },
+        },
+        y: {
+          type: 'logarithmic',
+          grid: { color: '#21262d' },
+          ticks: {
+            color: '#8b949e', font: { size: 11 },
+            callback: v => {
+              if (v >= 1000) return (v/1000).toLocaleString() + 'k';
+              if (v >= 1) return v.toLocaleString();
+              if (v >= 0.01) return v.toFixed(2);
+              return '';
+            }
+          },
+          title: { display: true, text: '발생 횟수 (log scale)', color: '#8b949e', font: { size: 11 } },
+          min: 0.01,
+        }
+      }
+    }
+  });
+
+  // Table
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = '';
+  for (let k = 2; k <= maxK; k++) {
+    const theo = theoreticalData[k - 2];
+    const act = actualData[k - 2];
+    const diff = act - theo;
+    const ratio = theo > 0.001 ? (act / theo) : null;
+    const isAnomaly = ratio !== null && (ratio > 1.3 || ratio < 0.7);
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${k}연속</td>
+      <td>${theo.toLocaleString(undefined, {maximumFractionDigits:1})}회</td>
+      <td>${act.toLocaleString()}회</td>
+      <td class="${diff > 0 ? 'green' : diff < 0 ? 'red' : ''}">${diff >= 0 ? '+' : ''}${diff.toFixed(1)}</td>
+      <td class="${isAnomaly ? 'highlight' : ''}">${ratio !== null ? ratio.toFixed(2) + 'x' : '—'}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// WIRING
+// ════════════════════════════════════════════════════════════════════════════
+let debounce = null;
+function scheduleRun() { clearTimeout(debounce); debounce = setTimeout(run, 200); }
+
+const rsLeft = document.getElementById('rsLeft');
+const rsRight = document.getElementById('rsRight');
+rsLeft.addEventListener('input', () => {
+  if (+rsLeft.value >= +rsRight.value - 10) rsLeft.value = +rsRight.value - 10;
+  rangeStartMs = sliderToMs(+rsLeft.value);
+  updateSliderFill();
+  scheduleRun();
+});
+rsRight.addEventListener('input', () => {
+  if (+rsRight.value <= +rsLeft.value + 10) rsRight.value = +rsLeft.value + 10;
+  rangeEndMs = sliderToMs(+rsRight.value);
+  updateSliderFill();
+  scheduleRun();
+});
+
+loadData().catch(err => {
+  document.getElementById('loadingMsg').textContent = '오류: ' + err.message;
+});
+</script>
+</body>
+</html>
