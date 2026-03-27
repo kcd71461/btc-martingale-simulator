@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BTC 5분봉 마틴게일 시뮬레이터</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
@@ -87,6 +88,15 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14p
   <p id="loadingMsg">BTC 5분봉 데이터 로딩 중...</p>
 </div>
 
+<nav style="padding:8px 24px;background:#161b22;border-bottom:1px solid #21262d;display:flex;gap:16px;font-size:0.8rem;">
+  <a href="./index.html" style="color:#8b949e;text-decoration:none;">홈</a>
+  <a href="./martingale.html" style="color:#58a6ff;text-decoration:none;font-weight:600;">시뮬레이터</a>
+  <a href="./streak_dist.html" style="color:#8b949e;text-decoration:none;">Streak 분포</a>
+  <a href="./streak_analysis.html" style="color:#8b949e;text-decoration:none;">조건부 승률</a>
+</nav>
+<div style="padding:10px 24px;background:#3d1418;border-bottom:1px solid #f85149;font-size:0.78rem;color:#f9826c;line-height:1.5;">
+  이 시뮬레이터는 교육/연구 목적입니다. 수수료·슬리피지·자금 한도 미반영. 마틴게일은 구조적 파산 리스크가 있으며, 과거 백테스트는 미래 수익을 보장하지 않습니다.
+</div>
 <header>
   <h1>BTC/USDT 5분봉 마틴게일 시뮬레이터</h1>
   <span class="sub">전체 계산 브라우저 인메모리 · 서버 통신 없음</span>
@@ -225,6 +235,7 @@ function simulate(candles, minStreak, maxRounds, baseBet) {
       const betDirNum = betDir;
       if (dir === betDirNum) {
         cumPnl += baseBet;
+        const ddW = peak - cumPnl; if (ddW > mdd) mdd = ddW;
         if (cumPnl > peak) peak = cumPnl;
         wins++; curLoss = 0;
         equity.push({ t: curr.openTime, pnl: cumPnl, won: true, rounds: betRound });
@@ -296,8 +307,16 @@ function downsample(arr, key, maxPts = 25000) {
   if (arr.length <= maxPts) return arr;
   const step = Math.ceil(arr.length / maxPts);
   const out = [];
-  for (let i = 0; i < arr.length; i++) {
-    if (i % step === 0 || i === arr.length - 1) out.push(arr[i]);
+  for (let i = 0; i < arr.length; i += step) {
+    const end = Math.min(i + step, arr.length);
+    let minIdx = i, maxIdx = i;
+    for (let j = i + 1; j < end; j++) {
+      if (arr[j].pnl < arr[minIdx].pnl) minIdx = j;
+      if (arr[j].pnl > arr[maxIdx].pnl) maxIdx = j;
+    }
+    if (minIdx === maxIdx) { out.push(arr[minIdx]); }
+    else if (minIdx < maxIdx) { out.push(arr[minIdx]); out.push(arr[maxIdx]); }
+    else { out.push(arr[maxIdx]); out.push(arr[minIdx]); }
   }
   return out;
 }
@@ -369,7 +388,12 @@ function updateStats(stats) {
 // SUB-SECTION: LOSS RISK ANALYSIS (5분 단위, 금액 기반)
 // ════════════════════════════════════════════════════════════════════════════
 function runSubAnalysis() {
-  if (fullEquity.length < 2 || filteredCandles.length < 2) return;
+  if (fullEquity.length < 2 || filteredCandles.length < 2) {
+    if (subChart) { subChart.destroy(); subChart = null; }
+    ['ssTotal','ssBustPct','ssBustCnt','ssSafePct'].forEach(id =>
+      document.getElementById(id).textContent = '—');
+    return;
+  }
 
   const threshold = parseFloat(document.getElementById('lossThreshold').value) || -500;
 
@@ -396,6 +420,7 @@ function runSubAnalysis() {
   const candles = filteredCandles;
   const totalCandles = candles.length;
   let bustCount = 0;
+  let qualifiedCount = 0;
 
   // 차트용 다운샘플된 결과
   const SAMPLE_STEP = Math.max(1, Math.floor(totalCandles / 8000));
@@ -409,18 +434,12 @@ function runSubAnalysis() {
     while (lo < hi) { const mid = (lo + hi) >> 1; if (timeArr[mid] < t) lo = mid + 1; else hi = mid; }
 
     if (lo >= n || (n - lo) < 500) {
-      // 이 시점 이후 트레이드 부족 (500건 미만) → 분석 제외
       continue;
     }
 
-    // baseline: 이 시점에서 전략 시작 시 누적PnL = 0
-    // 글로벌 equity에서 이 시점의 값 = lo > 0 ? pnlArr[lo-1] : 0
+    qualifiedCount++;
     const baseline = lo > 0 ? pnlArr[lo - 1] : 0;
-
-    // 이후 최저 글로벌 PnL
     const globalMin = suffMin[lo];
-
-    // 상대 최저 PnL (이 시점부터 시작했을 때의 최저)
     const relativeMin = globalMin - baseline;
 
     if (relativeMin <= threshold) bustCount++;
@@ -430,11 +449,10 @@ function runSubAnalysis() {
     }
   }
 
-  // 통계 업데이트
-  const bustPct = (bustCount / totalCandles * 100);
+  const bustPct = qualifiedCount > 0 ? (bustCount / qualifiedCount * 100) : 0;
   const safePct = 100 - bustPct;
 
-  document.getElementById('ssTotal').textContent   = totalCandles.toLocaleString() + '개';
+  document.getElementById('ssTotal').textContent   = qualifiedCount.toLocaleString() + '개';
   document.getElementById('ssBustPct').textContent  = bustPct.toFixed(2) + '%';
   document.getElementById('ssBustCnt').textContent  = bustCount.toLocaleString() + '개';
   document.getElementById('ssSafePct').textContent  = safePct.toFixed(2) + '%';
@@ -563,7 +581,7 @@ const rsLeft  = document.getElementById('rsLeft');
 const rsRight = document.getElementById('rsRight');
 
 rsLeft.addEventListener('input', () => {
-  if (+rsLeft.value >= +rsRight.value - 10) rsLeft.value = +rsRight.value - 10;
+  if (+rsLeft.value >= +rsRight.value - 10) rsLeft.value = Math.max(0, +rsRight.value - 10);
   rangeStartMs = sliderToMs(+rsLeft.value);
   updateSliderFill();
   scheduleRun();

@@ -109,7 +109,7 @@ async function loadCandles(onProgress = () => {}) {
   // Determine fetch start point
   let cursor = START_TIME;
   if (cached.length > 0) {
-    const maxTime = Math.max(...cached.map(c => c.openTime));
+    const maxTime = cached.reduce((m, c) => c.openTime > m ? c.openTime : m, 0);
     cursor = maxTime + 5 * 60 * 1000; // resume from last candle
     onProgress(`기존 ${cached.length.toLocaleString()}개 + 신규 데이터 수신 중...`);
   } else {

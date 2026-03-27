@@ -228,6 +228,7 @@ function simulate(candles, minStreak, maxRounds, baseBet) {
       const betDirNum = betDir;
       if (dir === betDirNum) {
         cumPnl += baseBet;
+        const ddW = peak - cumPnl; if (ddW > mdd) mdd = ddW;
         if (cumPnl > peak) peak = cumPnl;
         wins++; curLoss = 0;
         equity.push({ t: curr.openTime, pnl: cumPnl, won: true, rounds: betRound });
@@ -372,7 +373,12 @@ function updateStats(stats) {
 // SUB-SECTION: LOSS RISK ANALYSIS (5분 단위, 금액 기반)
 // ════════════════════════════════════════════════════════════════════════════
 function runSubAnalysis() {
-  if (fullEquity.length < 2 || filteredCandles.length < 2) return;
+  if (fullEquity.length < 2 || filteredCandles.length < 2) {
+    if (subChart) { subChart.destroy(); subChart = null; }
+    ['ssTotal','ssBustPct','ssBustCnt','ssSafePct'].forEach(id =>
+      document.getElementById(id).textContent = '—');
+    return;
+  }
 
   const threshold = parseFloat(document.getElementById('lossThreshold').value) || -500;
 
@@ -399,31 +405,24 @@ function runSubAnalysis() {
   const candles = filteredCandles;
   const totalCandles = candles.length;
   let bustCount = 0;
+  let qualifiedCount = 0;
 
-  // 차트용 다운샘플된 결과
   const SAMPLE_STEP = Math.max(1, Math.floor(totalCandles / 8000));
   const chartResults = [];
 
   for (let ci = 0; ci < totalCandles; ci++) {
     const t = candles[ci].openTime;
 
-    // equity에서 t 이후 첫 인덱스 (binary search)
     let lo = 0, hi = n;
     while (lo < hi) { const mid = (lo + hi) >> 1; if (timeArr[mid] < t) lo = mid + 1; else hi = mid; }
 
     if (lo >= n || (n - lo) < 500) {
-      // 이 시점 이후 트레이드 부족 (500건 미만) → 분석 제외
       continue;
     }
 
-    // baseline: 이 시점에서 전략 시작 시 누적PnL = 0
-    // 글로벌 equity에서 이 시점의 값 = lo > 0 ? pnlArr[lo-1] : 0
+    qualifiedCount++;
     const baseline = lo > 0 ? pnlArr[lo - 1] : 0;
-
-    // 이후 최저 글로벌 PnL
     const globalMin = suffMin[lo];
-
-    // 상대 최저 PnL (이 시점부터 시작했을 때의 최저)
     const relativeMin = globalMin - baseline;
 
     if (relativeMin <= threshold) bustCount++;
@@ -433,11 +432,10 @@ function runSubAnalysis() {
     }
   }
 
-  // 통계 업데이트
-  const bustPct = (bustCount / totalCandles * 100);
+  const bustPct = qualifiedCount > 0 ? (bustCount / qualifiedCount * 100) : 0;
   const safePct = 100 - bustPct;
 
-  document.getElementById('ssTotal').textContent   = totalCandles.toLocaleString() + '개';
+  document.getElementById('ssTotal').textContent   = qualifiedCount.toLocaleString() + '개';
   document.getElementById('ssBustPct').textContent  = bustPct.toFixed(2) + '%';
   document.getElementById('ssBustCnt').textContent  = bustCount.toLocaleString() + '개';
   document.getElementById('ssSafePct').textContent  = safePct.toFixed(2) + '%';

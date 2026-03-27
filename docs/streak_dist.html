@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BTC 5분봉 — Streak 분포: 이론 vs 실제</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
@@ -59,12 +60,13 @@ td:first-child, th:first-child { text-align: left; }
 .panel-overlay.show { display: block; }
 
 .event-panel {
-  position: fixed; top: 0; right: -520px; width: 500px; height: 100vh;
+  position: fixed; top: 0; right: -520px; width: 500px; max-width: 100vw; height: 100vh;
   background: #161b22; border-left: 1px solid #30363d; z-index: 901;
   display: flex; flex-direction: column;
   transition: right .25s ease;
   box-shadow: -4px 0 24px rgba(0,0,0,0.4);
 }
+@media (max-width: 520px) { .event-panel { width: 100vw; right: -100vw; } }
 .event-panel.open { right: 0; }
 
 .panel-header {
@@ -157,6 +159,12 @@ td:first-child, th:first-child { text-align: left; }
   </div>
 </div>
 
+<nav style="padding:8px 24px;background:#161b22;border-bottom:1px solid #21262d;display:flex;gap:16px;font-size:0.8rem;">
+  <a href="./index.html" style="color:#8b949e;text-decoration:none;">홈</a>
+  <a href="./martingale.html" style="color:#8b949e;text-decoration:none;">시뮬레이터</a>
+  <a href="./streak_dist.html" style="color:#58a6ff;text-decoration:none;font-weight:600;">Streak 분포</a>
+  <a href="./streak_analysis.html" style="color:#8b949e;text-decoration:none;">조건부 승률</a>
+</nav>
 <header>
   <h1>BTC/USDT 5분봉 — Streak 발생 횟수: 이론 기댓값 vs 실제 통계</h1>
   <div class="sub">X축: streak 길이 · Y축: 발생 횟수 · 이론 = 독립 1/2 게임 기댓값 · 실제 = 캔들 데이터 통계</div>
@@ -267,7 +275,7 @@ function countStreaksWithEvents(candles) {
       }
       dir = d;
       streak = 1;
-      streakStartIdx = i - 1;
+      streakStartIdx = i;
     }
   }
   // last streak
@@ -294,7 +302,7 @@ function countStreaksWithEvents(candles) {
 // ════════════════════════════════════════════════════════════════════════════
 function theoreticalExpected(nDirectional, k) {
   if (k > nDirectional) return 0;
-  return (nDirectional - k + 1) / Math.pow(2, k + 1);
+  return (nDirectional - k + 1) / Math.pow(2, k);
 }
 
 // ════════════════════════════════════════════════════════════════════════════

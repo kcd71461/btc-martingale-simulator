@@ -2,11 +2,13 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BTC 5분봉 마틴게일 - 실제 vs 이론 확률</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', sans-serif; padding: 24px; }
+  body { background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', sans-serif; padding: 24px; max-width: 1200px; margin: 0 auto; }
+  @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } body { padding: 12px; } }
   h1 { font-size: 1.4rem; margin-bottom: 4px; color: #f0f6fc; }
   .subtitle { font-size: 0.85rem; color: #8b949e; margin-bottom: 28px; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -29,6 +31,15 @@
 </head>
 <body>
 
+<nav style="padding:8px 24px;background:#161b22;border-bottom:1px solid #21262d;display:flex;gap:16px;font-size:0.8rem;margin:-24px -24px 20px;">
+  <a href="./index.html" style="color:#8b949e;text-decoration:none;">홈</a>
+  <a href="./martingale.html" style="color:#8b949e;text-decoration:none;">시뮬레이터</a>
+  <a href="./streak_dist.html" style="color:#8b949e;text-decoration:none;">Streak 분포</a>
+  <a href="./streak_analysis.html" style="color:#58a6ff;text-decoration:none;font-weight:600;">조건부 승률</a>
+</nav>
+<div style="padding:10px 16px;background:#3d2f04;border:1px solid #d29922;border-radius:8px;font-size:0.78rem;color:#d29922;line-height:1.5;margin-bottom:20px;">
+  이 페이지는 정적 분석 결과입니다 (streak=4, 최대 10회, $1, 2017-2026 기간 고정). 파라미터 변경은 시뮬레이터 페이지를 사용하세요.
+</div>
 <h1>BTC/USDT 5분봉 — 마틴게일 시뮬레이션</h1>
 <p class="subtitle">전략: 4연속 streak → 반대 포지션 | $1 시작, 최대 10회 | 2017-08-17 ~ 2026-03-27</p>
 
@@ -71,7 +82,7 @@
     <div class="stat-row"><span class="stat-label">트레이드당 기대값</span><span class="stat-val green">+$0.75</span></div>
     <div class="stat-row">
       <span class="stat-label">가설 검증</span>
-      <span class="badge badge-green">지지됨 ✓</span>
+      <span class="badge badge-yellow">조건부 지지</span>
     </div>
     <p class="note" style="margin-top:16px">
       <strong style="color:#3fb950">가설:</strong> streak이 길어질수록 반전 확률이 이론(50%)보다 높아진다.<br>
