@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BTC/USDT 5분봉 마틴게일 시뮬레이터</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', system-ui, sans-serif;
+  min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 40px 20px;
+}
+h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 8px; }
+.sub { font-size: 0.85rem; color: #8b949e; margin-bottom: 40px; text-align: center; line-height: 1.5; }
+.cards { display: flex; flex-wrap: wrap; gap: 20px; max-width: 900px; justify-content: center; }
+.card {
+  background: #161b22; border: 1px solid #30363d; border-radius: 12px;
+  padding: 24px; width: 280px; text-decoration: none; color: #e6edf3;
+  transition: border-color .2s, transform .15s;
+}
+.card:hover { border-color: #58a6ff; transform: translateY(-2px); }
+.card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 8px; }
+.card p { font-size: 0.8rem; color: #8b949e; line-height: 1.5; }
+.card .tag {
+  display: inline-block; margin-top: 12px; padding: 3px 10px; border-radius: 12px;
+  font-size: 0.7rem; font-weight: 600;
+}
+.tag-blue { background: #0d2240; color: #58a6ff; }
+.tag-green { background: #1b4332; color: #3fb950; }
+.tag-yellow { background: #3d2f04; color: #d29922; }
+.footer { margin-top: 40px; font-size: 0.75rem; color: #8b949e; text-align: center; line-height: 1.6; }
+.footer a { color: #58a6ff; text-decoration: none; }
+</style>
+</head>
+<body>
+
+<h1>BTC/USDT 5분봉 분석</h1>
+<p class="sub">
+  Binance BTC/USDT 5분봉 데이터 (2017~현재) 기반<br>
+  모든 계산은 브라우저에서 실행 · 서버 불필요 · 최초 방문 시 Binance API에서 데이터 자동 수집
+</p>
+
+<div class="cards">
+  <a class="card" href="./martingale.html">
+    <h2>마틴게일 시뮬레이터</h2>
+    <p>
+      N연속 streak 발생 시 반대 포지션 진입하는 마틴게일 전략 시뮬레이션.
+      첫 배팅 금액, 최소 streak, 최대 배팅 횟수, 기간 조절 가능.
+      에쿼티 커브 + 손실 위험 분석.
+    </p>
+    <span class="tag tag-blue">인터랙티브</span>
+  </a>
+
+  <a class="card" href="./streak_dist.html">
+    <h2>Streak 분포: 이론 vs 실제</h2>
+    <p>
+      streak 길이별 발생 횟수를 이론적 기댓값 (독립 1/2 게임)과 비교.
+      실제 막대 클릭 시 해당 이벤트 목록 + TradingView 검증 링크 제공.
+    </p>
+    <span class="tag tag-green">통계 분석</span>
+  </a>
+
+  <a class="card" href="./streak_analysis.html">
+    <h2>라운드별 조건부 승률</h2>
+    <p>
+      마틴게일 각 라운드에서의 실제 반전 확률 vs 이론(50%).
+      가설 검증: streak이 길수록 반전 확률이 높아지는가?
+    </p>
+    <span class="tag tag-yellow">가설 검증</span>
+  </a>
+</div>
+
+<div class="footer">
+  데이터 소스: <a href="https://www.binance.com" target="_blank">Binance</a> REST API (Klines)<br>
+  최초 방문 시 ~2분간 데이터 수신 후 IndexedDB에 캐시 · 이후 즉시 로드
+</div>
+
+</body>
+</html>
