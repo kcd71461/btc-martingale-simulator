@@ -235,7 +235,7 @@ function simulate(candles, minStreak, maxRounds, baseBet) {
       } else {
         betRound++;
         if (betRound > maxRounds) {
-          cumPnl -= maxLossPerSeq;
+          cumPnl -= baseBet * maxLossPerSeq;
           const dd = peak - cumPnl; if (dd > mdd) mdd = dd;
           losses++; curLoss++; if (curLoss > maxConsecLoss) maxConsecLoss = curLoss;
           equity.push({ t: curr.openTime, pnl: cumPnl, won: false, rounds: maxRounds });
@@ -263,7 +263,7 @@ function simulate(candles, minStreak, maxRounds, baseBet) {
     stats: {
       totalTrades, wins, losses, finalPnl: cumPnl, mdd,
       winRate: totalTrades > 0 ? wins / totalTrades : 0,
-      maxConsecLoss, maxLossPerSeq,
+      maxConsecLoss, maxLossPerSeq: baseBet * maxLossPerSeq,
       ev: totalTrades > 0 ? cumPnl / totalTrades : 0,
     }
   };
@@ -411,9 +411,8 @@ function runSubAnalysis() {
     let lo = 0, hi = n;
     while (lo < hi) { const mid = (lo + hi) >> 1; if (timeArr[mid] < t) lo = mid + 1; else hi = mid; }
 
-    if (lo >= n) {
-      // 이 시점 이후 트레이드 없음 → 손실 없음 → 안전
-      if (ci % SAMPLE_STEP === 0) chartResults.push({ t, minPnl: 0 });
+    if (lo >= n || (n - lo) < 500) {
+      // 이 시점 이후 트레이드 부족 (500건 미만) → 분석 제외
       continue;
     }
 

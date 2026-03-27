@@ -294,7 +294,7 @@ function countStreaksWithEvents(candles) {
 // ════════════════════════════════════════════════════════════════════════════
 function theoreticalExpected(nDirectional, k) {
   if (k > nDirectional) return 0;
-  return (nDirectional - k + 3) / Math.pow(2, k + 1);
+  return (nDirectional - k + 1) / Math.pow(2, k + 1);
 }
 
 // ════════════════════════════════════════════════════════════════════════════

@@ -86,7 +86,7 @@ export function runSimulation(
         curLoss = 0;
         equity.push({ t: triggerTime, pnl: cumPnl, won: true, rounds: betRound });
         inBet = false;
-        streak = 2;
+        streak = 1;
         streakDir = dir;
       } else {
         // 패배
@@ -100,7 +100,7 @@ export function runSimulation(
           if (curLoss > maxConsecLoss) maxConsecLoss = curLoss;
           equity.push({ t: triggerTime, pnl: cumPnl, won: false, rounds: maxRounds });
           inBet = false;
-          streak = 2;
+          streak = 1;
           streakDir = dir;
         } else {
           streak = (dir === streakDir) ? streak + 1 : 2;
@@ -115,7 +115,7 @@ export function runSimulation(
     if (dir === streakDir) {
       streak++;
     } else {
-      streak = 2;
+      streak = 1;
       streakDir = dir;
     }
 

@@ -176,7 +176,7 @@ function simulate(candles: Candle[]): TradeResult[] {
     if (dir === streakDir) {
       streak++;
     } else {
-      streak = 2;
+      streak = 1;
       streakDir = dir;
     }
 
