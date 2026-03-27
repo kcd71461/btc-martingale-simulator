@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type Database from 'better-sqlite3';
 import { crossCorrelation } from '../analysis/correlation.js';
+import { loadCandlesFromCache, filterCandles, runSimulation } from '../analysis/martingale_engine.js';
 
 export function createRouter(db: Database.Database): Router {
   const router = Router();
@@ -101,6 +102,51 @@ export function createRouter(db: Database.Database): Router {
     const results = crossCorrelation(bncPrices, polyPrices, lagRange, step);
 
     res.json({ results, timebase, lagRange, step });
+  });
+
+  router.get('/martingale', (req, res) => {
+    try {
+      const allCandles = loadCandlesFromCache();
+
+      const startMs = req.query.start
+        ? new Date(req.query.start as string).getTime()
+        : allCandles[0].openTime;
+      const endMs = req.query.end
+        ? new Date(req.query.end as string).getTime()
+        : allCandles[allCandles.length - 1].openTime;
+      const minStreak = Math.max(2, Math.min(20, parseInt(req.query.minStreak as string) || 4));
+      const maxRounds = Math.max(1, Math.min(15, parseInt(req.query.maxRounds as string) || 10));
+
+      const candles = filterCandles(allCandles, startMs, endMs);
+      if (candles.length < 2) {
+        res.status(400).json({ error: '해당 기간에 캔들 데이터 없음' });
+        return;
+      }
+
+      const { equity, stats } = runSimulation(candles, minStreak, maxRounds);
+
+      // 차트용 다운샘플: 포인트가 너무 많으면 50k로 제한
+      const MAX_POINTS = 50_000;
+      let points = equity;
+      if (equity.length > MAX_POINTS) {
+        const step = Math.ceil(equity.length / MAX_POINTS);
+        points = equity.filter((_, i) => i % step === 0 || i === equity.length - 1);
+      }
+
+      res.json({
+        equity: points,
+        stats,
+        meta: {
+          candleCount: candles.length,
+          startMs,
+          endMs,
+          minStreak,
+          maxRounds,
+        },
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   return router;

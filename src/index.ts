@@ -27,6 +27,7 @@ const polymarket = startPolymarketConnector(writer);
 const app = express();
 app.use('/api', createRouter(db));
 app.use(express.static(path.join(__dirname, '..', 'public')));
+app.get('/candles.json', (_, res) => res.sendFile(path.join(DATA_DIR, 'btc_5m_candles.json')));
 
 app.listen(PORT, HOST, () => {
   console.log(`[Server] Dashboard: http://100.110.54.39:${PORT}`);

@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>BTC 5분봉 마틴게일 시뮬레이터</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', system-ui, sans-serif; }
+
+header { padding: 18px 24px 14px; border-bottom: 1px solid #21262d; display: flex; align-items: baseline; gap: 14px; }
+header h1 { font-size: 1.15rem; font-weight: 600; }
+header .sub { font-size: 0.8rem; color: #8b949e; }
+
+/* ── Controls ── */
+.controls { display: flex; flex-wrap: wrap; gap: 20px; padding: 14px 24px; background: #161b22; border-bottom: 1px solid #21262d; align-items: flex-end; }
+.ctrl-group { display: flex; flex-direction: column; gap: 4px; }
+.ctrl-group label { font-size: 0.72rem; color: #8b949e; text-transform: uppercase; letter-spacing: .04em; }
+.ctrl-group .row { display: flex; align-items: center; gap: 8px; }
+input[type="range"] { -webkit-appearance: none; width: 160px; height: 4px; border-radius: 2px; background: #30363d; cursor: pointer; }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #58a6ff; cursor: pointer; }
+.val-badge { background: #21262d; border: 1px solid #30363d; border-radius: 5px; padding: 2px 8px; font-size: 0.85rem; min-width: 36px; text-align: center; font-weight: 600; color: #58a6ff; }
+
+/* ── Stats bar ── */
+.stats-bar { display: flex; flex-wrap: wrap; background: #161b22; border-bottom: 1px solid #21262d; }
+.stat { flex: 1; min-width: 130px; padding: 10px 16px; border-right: 1px solid #21262d; }
+.stat:last-child { border-right: none; }
+.stat .lbl { font-size: 0.7rem; color: #8b949e; text-transform: uppercase; margin-bottom: 3px; }
+.stat .val { font-size: 1rem; font-weight: 700; }
+.green { color: #3fb950; } .red { color: #f85149; } .blue { color: #58a6ff; }
+
+/* ── Chart sections ── */
+.section { padding: 16px 24px; }
+.section-title { font-size: 0.85rem; font-weight: 600; color: #8b949e; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 12px; }
+
+.chart-main { position: relative; height: 340px; }
+.chart-main canvas { width: 100% !important; height: 100% !important; }
+
+/* ── Dual range slider ── */
+.range-slider-wrap { padding: 8px 24px 20px; }
+.range-slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.range-slider-header span { font-size: 0.78rem; color: #58a6ff; font-weight: 600; }
+.range-slider { position: relative; height: 28px; }
+.range-slider input[type="range"] {
+  -webkit-appearance: none; pointer-events: none; position: absolute; top: 0; left: 0;
+  width: 100%; height: 28px; background: none; margin: 0; padding: 0; z-index: 3;
+}
+.range-slider input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; pointer-events: all;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #58a6ff; border: 2px solid #0d1117; cursor: grab; position: relative; z-index: 5;
+}
+.range-slider input[type="range"]::-webkit-slider-runnable-track { height: 6px; background: transparent; }
+.range-track { position: absolute; top: 11px; left: 0; right: 0; height: 6px; border-radius: 3px; background: #21262d; z-index: 1; }
+.range-fill { position: absolute; top: 0; height: 100%; border-radius: 3px; background: rgba(88,166,255,0.35); z-index: 2; }
+
+/* ── Sub section ── */
+.sub-section { margin-top: 8px; padding: 20px 24px; background: #161b22; border: 1px solid #21262d; border-radius: 10px; margin-left: 24px; margin-right: 24px; margin-bottom: 24px; }
+.sub-section h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 14px; }
+.sub-controls { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-bottom: 16px; }
+.sub-controls input[type="number"] {
+  background: #21262d; border: 1px solid #30363d; color: #f85149; border-radius: 6px;
+  padding: 6px 12px; font-size: 0.95rem; font-weight: 700; width: 130px; text-align: right;
+}
+.sub-controls input[type="number"]:focus { outline: none; border-color: #f85149; }
+.sub-stats { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 14px; }
+.sub-stat { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 10px 16px; min-width: 180px; }
+.sub-stat .lbl { font-size: 0.7rem; color: #8b949e; text-transform: uppercase; margin-bottom: 3px; }
+.sub-stat .val { font-size: 1rem; font-weight: 700; }
+.chart-sub { position: relative; height: 260px; }
+.chart-sub canvas { width: 100% !important; height: 100% !important; }
+
+/* ── Overlay ── */
+#overlay { position: fixed; inset: 0; background: rgba(13,17,23,0.92); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; z-index: 999; }
+#overlay.hidden { display: none; }
+.spinner { width: 40px; height: 40px; border: 3px solid #30363d; border-top-color: #58a6ff; border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+#overlay p { color: #8b949e; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+
+<div id="overlay">
+  <div class="spinner"></div>
+  <p id="loadingMsg">BTC 5분봉 데이터 로딩 중...</p>
+</div>
+
+<header>
+  <h1>BTC/USDT 5분봉 마틴게일 시뮬레이터</h1>
+  <span class="sub">전체 계산 브라우저 인메모리 · 서버 통신 없음</span>
+</header>
+
+<div class="controls">
+  <div class="ctrl-group">
+    <label>최소 streak 수 (트리거)</label>
+    <div class="row">
+      <input type="range" id="minStreak" min="2" max="15" value="4">
+      <span class="val-badge" id="minStreakVal">4</span>
+      <span style="font-size:0.72rem;color:#8b949e">연속</span>
+    </div>
+  </div>
+  <div class="ctrl-group">
+    <label>최대 배팅 횟수</label>
+    <div class="row">
+      <input type="range" id="maxRounds" min="1" max="15" value="10">
+      <span class="val-badge" id="maxRoundsVal">10</span>
+      <span style="font-size:0.72rem;color:#8b949e">회</span>
+    </div>
+  </div>
+  <div class="ctrl-group">
+    <label>첫 배팅 금액 ($)</label>
+    <div class="row">
+      <input type="number" id="baseBet" value="1" min="0.01" step="0.5" style="background:#21262d;border:1px solid #30363d;color:#58a6ff;border-radius:6px;padding:5px 10px;font-size:0.9rem;font-weight:700;width:90px;text-align:right;">
+    </div>
+  </div>
+</div>
+
+<div class="stats-bar">
+  <div class="stat"><div class="lbl">총 트레이드</div><div class="val blue" id="sTrades">—</div></div>
+  <div class="stat"><div class="lbl">승률</div><div class="val green" id="sWinRate">—</div></div>
+  <div class="stat"><div class="lbl">최종 손익</div><div class="val" id="sFinalPnl">—</div></div>
+  <div class="stat"><div class="lbl">MDD</div><div class="val red" id="sMdd">—</div></div>
+  <div class="stat"><div class="lbl">최대 손실/시퀀스</div><div class="val red" id="sMaxLoss">—</div></div>
+  <div class="stat"><div class="lbl">기대값/트레이드</div><div class="val" id="sEv">—</div></div>
+</div>
+
+<div class="section">
+  <div class="chart-main"><canvas id="mainChart"></canvas></div>
+</div>
+
+<div class="range-slider-wrap">
+  <div class="range-slider-header">
+    <span id="rsLabelLeft">2017-08-17</span>
+    <span style="font-size:0.72rem;color:#8b949e">기간 범위 드래그</span>
+    <span id="rsLabelRight">—</span>
+  </div>
+  <div class="range-slider">
+    <div class="range-track"><div class="range-fill" id="rsFill"></div></div>
+    <input type="range" id="rsLeft" min="0" max="1000" value="0">
+    <input type="range" id="rsRight" min="0" max="1000" value="1000">
+  </div>
+</div>
+
+<div class="sub-section">
+  <h3>손실 위험 분석 — 시작 시점별 최저 PnL 도달 확률</h3>
+  <p style="font-size:0.78rem;color:#8b949e;margin-bottom:14px;">
+    각 5분봉을 시작 시점으로 잡았을 때, 전략 운용 중 누적 PnL이 입력 금액 이하로 떨어진 적이 있는 시작 시점의 비율
+  </p>
+  <div class="sub-controls">
+    <div class="ctrl-group">
+      <label>손실 임계값 ($)</label>
+      <div class="row">
+        <input type="number" id="lossThreshold" value="-500" step="100">
+        <span style="font-size:0.78rem;color:#8b949e">이하로 떨어지는 시작 시점?</span>
+      </div>
+    </div>
+  </div>
+  <div class="sub-stats">
+    <div class="sub-stat"><div class="lbl">분석 시작 시점 수 (5분 단위)</div><div class="val blue" id="ssTotal">—</div></div>
+    <div class="sub-stat"><div class="lbl">임계값 이하 도달 비율</div><div class="val red" id="ssBustPct">—</div></div>
+    <div class="sub-stat"><div class="lbl">도달 시점 수</div><div class="val red" id="ssBustCnt">—</div></div>
+    <div class="sub-stat"><div class="lbl">안전 비율</div><div class="val green" id="ssSafePct">—</div></div>
+  </div>
+  <div class="chart-sub"><canvas id="subChart"></canvas></div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════════════════════
+let allCandles = null;
+let mainChart = null;
+let subChart  = null;
+
+// Cached simulation result for the full dataset (re-computed when params change)
+let fullEquity = [];
+let fullStats  = {};
+let filteredCandles = [];
+
+// Date boundaries from data
+let dataStartMs = 0;
+let dataEndMs   = 0;
+
+// Current range from slider (ms)
+let rangeStartMs = 0;
+let rangeEndMs   = 0;
+
+// ════════════════════════════════════════════════════════════════════════════
+// LOAD
+// ════════════════════════════════════════════════════════════════════════════
+async function loadData() {
+  const msg = document.getElementById('loadingMsg');
+  msg.textContent = 'BTC 5분봉 데이터 로딩 중... (최초 1회)';
+  const res = await fetch('/candles.json');
+  if (!res.ok) throw new Error('캔들 데이터 로드 실패');
+  msg.textContent = '파싱 중...';
+  allCandles = await res.json();
+
+  dataStartMs = allCandles[0].openTime;
+  dataEndMs   = allCandles[allCandles.length - 1].openTime;
+  rangeStartMs = dataStartMs;
+  rangeEndMs   = dataEndMs;
+
+  document.getElementById('overlay').classList.add('hidden');
+  runFull();
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// SIMULATION
+// ════════════════════════════════════════════════════════════════════════════
+function simulate(candles, minStreak, maxRounds, baseBet) {
+  const bet = r => baseBet * (1 << (r - 1));
+  const maxLossPerSeq = (1 << maxRounds) - 1; // 2^n - 1
+
+  const equity = []; // {t, pnl, won, rounds}
+  let streak = 1, streakDir = null;
+  let inBet = false, betDir = null, betRound = 1, triggerTime = 0;
+  let cumPnl = 0, wins = 0, losses = 0;
+  let peak = 0, mdd = 0, curLoss = 0, maxConsecLoss = 0;
+
+  for (let i = 1; i < candles.length; i++) {
+    const prev = candles[i - 1], curr = candles[i];
+    const dir = curr.close > prev.close ? 1 : curr.close < prev.close ? -1 : 0;
+    if (dir === 0) { if (!inBet) continue; else continue; }
+
+    if (inBet) {
+      const betDirNum = betDir;
+      if (dir === betDirNum) {
+        cumPnl += baseBet;
+        if (cumPnl > peak) peak = cumPnl;
+        wins++; curLoss = 0;
+        equity.push({ t: curr.openTime, pnl: cumPnl, won: true, rounds: betRound });
+        inBet = false; streak = 1; streakDir = dir;
+      } else {
+        betRound++;
+        if (betRound > maxRounds) {
+          cumPnl -= maxLossPerSeq;
+          const dd = peak - cumPnl; if (dd > mdd) mdd = dd;
+          losses++; curLoss++; if (curLoss > maxConsecLoss) maxConsecLoss = curLoss;
+          equity.push({ t: curr.openTime, pnl: cumPnl, won: false, rounds: maxRounds });
+          inBet = false; streak = 1; streakDir = dir;
+        }
+      }
+      continue;
+    }
+
+    streak = (dir === streakDir) ? streak + 1 : 1;
+    streakDir = dir;
+
+    if (streak >= minStreak) {
+      inBet = true;
+      betDir = -streakDir; // opposite
+      betRound = 1;
+      triggerTime = curr.openTime;
+      streak = 0; // prevent re-trigger
+    }
+  }
+
+  const totalTrades = wins + losses;
+  return {
+    equity,
+    stats: {
+      totalTrades, wins, losses, finalPnl: cumPnl, mdd,
+      winRate: totalTrades > 0 ? wins / totalTrades : 0,
+      maxConsecLoss, maxLossPerSeq,
+      ev: totalTrades > 0 ? cumPnl / totalTrades : 0,
+    }
+  };
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// RANGE SLIDER ↔ DATE CONVERSION
+// ════════════════════════════════════════════════════════════════════════════
+function sliderToMs(val) {
+  return dataStartMs + (val / 1000) * (dataEndMs - dataStartMs);
+}
+function msToSlider(ms) {
+  return Math.round(((ms - dataStartMs) / (dataEndMs - dataStartMs)) * 1000);
+}
+function msToDateStr(ms) {
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+function updateSliderFill() {
+  const l = parseFloat(document.getElementById('rsLeft').value);
+  const r = parseFloat(document.getElementById('rsRight').value);
+  const fill = document.getElementById('rsFill');
+  fill.style.left  = (l / 10) + '%';
+  fill.style.width  = ((r - l) / 10) + '%';
+  document.getElementById('rsLabelLeft').textContent  = msToDateStr(sliderToMs(l));
+  document.getElementById('rsLabelRight').textContent = msToDateStr(sliderToMs(r));
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// DOWNSAMPLE
+// ════════════════════════════════════════════════════════════════════════════
+function downsample(arr, key, maxPts = 25000) {
+  if (arr.length <= maxPts) return arr;
+  const step = Math.ceil(arr.length / maxPts);
+  const out = [];
+  for (let i = 0; i < arr.length; i++) {
+    if (i % step === 0 || i === arr.length - 1) out.push(arr[i]);
+  }
+  return out;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// MAIN CHART
+// ════════════════════════════════════════════════════════════════════════════
+function renderMainChart(equity) {
+  const pts = downsample(equity);
+  if (mainChart) mainChart.destroy();
+
+  mainChart = new Chart(document.getElementById('mainChart'), {
+    type: 'line',
+    data: {
+      labels: pts.map(p => p.t),
+      datasets: [{
+        label: '누적 손익 ($)',
+        data: pts.map(p => p.pnl),
+        borderColor: '#58a6ff',
+        backgroundColor: ctx => {
+          const a = ctx.chart.chartArea; if (!a) return 'transparent';
+          const g = ctx.chart.ctx.createLinearGradient(0, a.top, 0, a.bottom);
+          g.addColorStop(0, 'rgba(88,166,255,0.18)'); g.addColorStop(1, 'rgba(88,166,255,0.01)');
+          return g;
+        },
+        borderWidth: 1.5, pointRadius: 0, fill: true, tension: 0.1,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: {
+          title: items => new Date(+items[0].label).toISOString().replace('T',' ').slice(0,16),
+          label: item => ` 누적 손익: $${item.parsed.y.toLocaleString(undefined, {maximumFractionDigits:2})}`,
+        }}
+      },
+      scales: {
+        x: { type: 'time', time: { unit: 'month', tooltipFormat: 'yyyy-MM-dd HH:mm' },
+             grid: { color: '#21262d' }, ticks: { color: '#8b949e', maxRotation: 0, font: { size: 10 } } },
+        y: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', font: { size: 10 }, callback: v => '$'+v.toLocaleString(undefined,{maximumFractionDigits:0}) },
+             title: { display: true, text: '누적 손익 ($)', color: '#8b949e', font: { size: 10 } } }
+      }
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// STATS
+// ════════════════════════════════════════════════════════════════════════════
+function fmtMoney(n, decimals = 2) {
+  const sign = n >= 0 ? '+' : '-';
+  return sign + '$' + Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+function updateStats(stats) {
+  document.getElementById('sTrades').textContent   = stats.totalTrades.toLocaleString() + '회';
+  document.getElementById('sWinRate').textContent  = (stats.winRate * 100).toFixed(2) + '%';
+  const pEl = document.getElementById('sFinalPnl');
+  pEl.textContent = fmtMoney(stats.finalPnl); pEl.className = 'val ' + (stats.finalPnl >= 0 ? 'green' : 'red');
+  document.getElementById('sMdd').textContent      = '-$' + stats.mdd.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  document.getElementById('sMaxLoss').textContent  = '-$' + stats.maxLossPerSeq.toLocaleString();
+  const eEl = document.getElementById('sEv');
+  eEl.textContent = fmtMoney(stats.ev); eEl.className = 'val ' + (stats.ev >= 0 ? 'green' : 'red');
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// SUB-SECTION: LOSS RISK ANALYSIS (5분 단위, 금액 기반)
+// ════════════════════════════════════════════════════════════════════════════
+function runSubAnalysis() {
+  if (fullEquity.length < 2 || filteredCandles.length < 2) return;
+
+  const threshold = parseFloat(document.getElementById('lossThreshold').value) || -500;
+
+  const eq = fullEquity;
+  const n = eq.length;
+
+  // 1) equity 배열에서 suffix min 구축 (끝에서부터 최소 PnL)
+  const pnlArr  = new Float64Array(n);
+  const timeArr = new Float64Array(n);
+  for (let i = 0; i < n; i++) { pnlArr[i] = eq[i].pnl; timeArr[i] = eq[i].t; }
+
+  const suffMin = new Float64Array(n);
+  suffMin[n - 1] = pnlArr[n - 1];
+  for (let i = n - 2; i >= 0; i--) {
+    suffMin[i] = Math.min(pnlArr[i], suffMin[i + 1]);
+  }
+
+  // 2) 각 5분봉 시작 시점마다:
+  //    - 해당 시점의 equity baseline = 직전 equity point의 pnl (또는 0)
+  //    - 이후 최저 PnL = suffMin[firstEqIdx] (해당 시점 이후 equity의 최소)
+  //    - 상대 최저 = suffMin - baseline = 시작 이후 최저 PnL
+  //    - threshold 이하이면 위험 시점
+
+  const candles = filteredCandles;
+  const totalCandles = candles.length;
+  let bustCount = 0;
+
+  // 차트용 다운샘플된 결과
+  const SAMPLE_STEP = Math.max(1, Math.floor(totalCandles / 8000));
+  const chartResults = [];
+
+  for (let ci = 0; ci < totalCandles; ci++) {
+    const t = candles[ci].openTime;
+
+    // equity에서 t 이후 첫 인덱스 (binary search)
+    let lo = 0, hi = n;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (timeArr[mid] < t) lo = mid + 1; else hi = mid; }
+
+    if (lo >= n) {
+      // 이 시점 이후 트레이드 없음 → 손실 없음 → 안전
+      if (ci % SAMPLE_STEP === 0) chartResults.push({ t, minPnl: 0 });
+      continue;
+    }
+
+    // baseline: 이 시점에서 전략 시작 시 누적PnL = 0
+    // 글로벌 equity에서 이 시점의 값 = lo > 0 ? pnlArr[lo-1] : 0
+    const baseline = lo > 0 ? pnlArr[lo - 1] : 0;
+
+    // 이후 최저 글로벌 PnL
+    const globalMin = suffMin[lo];
+
+    // 상대 최저 PnL (이 시점부터 시작했을 때의 최저)
+    const relativeMin = globalMin - baseline;
+
+    if (relativeMin <= threshold) bustCount++;
+
+    if (ci % SAMPLE_STEP === 0) {
+      chartResults.push({ t, minPnl: relativeMin });
+    }
+  }
+
+  // 통계 업데이트
+  const bustPct = (bustCount / totalCandles * 100);
+  const safePct = 100 - bustPct;
+
+  document.getElementById('ssTotal').textContent   = totalCandles.toLocaleString() + '개';
+  document.getElementById('ssBustPct').textContent  = bustPct.toFixed(2) + '%';
+  document.getElementById('ssBustCnt').textContent  = bustCount.toLocaleString() + '개';
+  document.getElementById('ssSafePct').textContent  = safePct.toFixed(2) + '%';
+
+  renderSubChart(chartResults, threshold);
+}
+
+function renderSubChart(results, threshold) {
+  if (subChart) subChart.destroy();
+  if (results.length === 0) return;
+
+  subChart = new Chart(document.getElementById('subChart'), {
+    type: 'line',
+    data: {
+      labels: results.map(p => p.t),
+      datasets: [
+        {
+          label: '시작 시점별 최저 PnL ($)',
+          data: results.map(p => p.minPnl),
+          borderColor: results.map(p => p.minPnl <= threshold ? '#f85149' : '#3fb950'),
+          segment: {
+            borderColor: ctx => {
+              const v = ctx.p1.parsed.y;
+              return v <= threshold ? '#f85149' : '#3fb950';
+            },
+            backgroundColor: ctx => {
+              const v = ctx.p1.parsed.y;
+              return v <= threshold ? 'rgba(248,81,73,0.08)' : 'rgba(63,185,80,0.05)';
+            },
+          },
+          backgroundColor: 'transparent',
+          borderWidth: 1.2,
+          pointRadius: 0,
+          fill: true,
+          tension: 0.1,
+        },
+        {
+          label: '임계값',
+          data: results.map(() => threshold),
+          borderColor: '#f85149',
+          borderDash: [6, 4],
+          borderWidth: 1.5,
+          pointRadius: 0,
+          fill: false,
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#8b949e', font: { size: 10 }, usePointStyle: true } },
+        tooltip: { callbacks: {
+          title: items => '시작: ' + new Date(+items[0].label).toISOString().replace('T',' ').slice(0,16),
+          label: item => {
+            if (item.datasetIndex === 1) return ` 임계값: $${threshold.toLocaleString()}`;
+            const p = results[item.dataIndex];
+            return [
+              ` 최저 PnL: $${p.minPnl.toLocaleString(undefined,{maximumFractionDigits:0})}`,
+              p.minPnl <= threshold ? ' ⚠ 임계값 돌파' : ' ✓ 안전',
+            ];
+          },
+        }}
+      },
+      scales: {
+        x: {
+          type: 'time', time: { unit: 'month', tooltipFormat: 'yyyy-MM-dd HH:mm' },
+          grid: { color: '#21262d' }, ticks: { color: '#8b949e', maxRotation: 0, font: { size: 10 } },
+          title: { display: true, text: '전략 시작 시점 (이 시점부터 시작했을 때)', color: '#8b949e', font: { size: 10 } },
+        },
+        y: {
+          grid: { color: '#21262d' },
+          ticks: { color: '#8b949e', font: { size: 10 }, callback: v => '$' + v.toLocaleString(undefined,{maximumFractionDigits:0}) },
+          title: { display: true, text: '전략 운용 중 최저 PnL ($)', color: '#8b949e', font: { size: 10 } },
+        }
+      }
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// MAIN RUN
+// ════════════════════════════════════════════════════════════════════════════
+function runFull() {
+  if (!allCandles) return;
+  const minStreak = parseInt(document.getElementById('minStreak').value);
+  const maxRounds = parseInt(document.getElementById('maxRounds').value);
+
+  // Filter candles to slider range
+  filteredCandles = allCandles.filter(c => c.openTime >= rangeStartMs && c.openTime <= rangeEndMs);
+  if (filteredCandles.length < 2) return;
+
+  const t0 = performance.now();
+  const baseBet = parseFloat(document.getElementById('baseBet').value) || 1;
+  const { equity, stats } = simulate(filteredCandles, minStreak, maxRounds, baseBet);
+  console.log(`[sim] ${filteredCandles.length.toLocaleString()} candles → ${equity.length.toLocaleString()} trades, ${(performance.now()-t0).toFixed(0)}ms`);
+
+  fullEquity = equity;
+  fullStats  = stats;
+
+  updateStats(stats);
+  renderMainChart(equity);
+  updateSliderFill();
+  runSubAnalysis();
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// WIRING
+// ════════════════════════════════════════════════════════════════════════════
+let debounce = null;
+function scheduleRun() { clearTimeout(debounce); debounce = setTimeout(runFull, 250); }
+function scheduleSubRun() { clearTimeout(debounce); debounce = setTimeout(runSubAnalysis, 200); }
+
+document.getElementById('minStreak').addEventListener('input', e => {
+  document.getElementById('minStreakVal').textContent = e.target.value;
+  scheduleRun();
+});
+document.getElementById('maxRounds').addEventListener('input', e => {
+  document.getElementById('maxRoundsVal').textContent = e.target.value;
+  scheduleRun();
+});
+document.getElementById('baseBet').addEventListener('input', scheduleRun);
+
+// Dual range slider
+const rsLeft  = document.getElementById('rsLeft');
+const rsRight = document.getElementById('rsRight');
+
+rsLeft.addEventListener('input', () => {
+  if (+rsLeft.value >= +rsRight.value - 10) rsLeft.value = +rsRight.value - 10;
+  rangeStartMs = sliderToMs(+rsLeft.value);
+  updateSliderFill();
+  scheduleRun();
+});
+rsRight.addEventListener('input', () => {
+  if (+rsRight.value <= +rsLeft.value + 10) rsRight.value = +rsLeft.value + 10;
+  rangeEndMs = sliderToMs(+rsRight.value);
+  updateSliderFill();
+  scheduleRun();
+});
+
+// Loss threshold for sub analysis
+document.getElementById('lossThreshold').addEventListener('input', scheduleSubRun);
+
+// ════════════════════════════════════════════════════════════════════════════
+// BOOT
+// ════════════════════════════════════════════════════════════════════════════
+loadData().catch(err => {
+  document.getElementById('loadingMsg').textContent = '오류: ' + err.message;
+});
+</script>
+</body>
+</html>

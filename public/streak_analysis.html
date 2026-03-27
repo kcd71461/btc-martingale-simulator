@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>BTC 5분봉 마틴게일 - 실제 vs 이론 확률</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', sans-serif; padding: 24px; }
+  h1 { font-size: 1.4rem; margin-bottom: 4px; color: #f0f6fc; }
+  .subtitle { font-size: 0.85rem; color: #8b949e; margin-bottom: 28px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 20px; }
+  .card h2 { font-size: 0.95rem; color: #8b949e; margin-bottom: 16px; text-transform: uppercase; letter-spacing: .05em; }
+  .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #21262d; font-size: 0.85rem; }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-label { color: #8b949e; }
+  .stat-val { font-weight: 600; }
+  .green { color: #3fb950; }
+  .red { color: #f85149; }
+  .yellow { color: #d29922; }
+  .wide { grid-column: 1 / -1; }
+  canvas { max-height: 340px; }
+  .note { font-size: 0.78rem; color: #8b949e; margin-top: 12px; line-height: 1.6; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+  .badge-green { background: #1b4332; color: #3fb950; }
+  .badge-yellow { background: #3d2f04; color: #d29922; }
+</style>
+</head>
+<body>
+
+<h1>BTC/USDT 5분봉 — 마틴게일 시뮬레이션</h1>
+<p class="subtitle">전략: 4연속 streak → 반대 포지션 | $1 시작, 최대 10회 | 2017-08-17 ~ 2026-03-27</p>
+
+<div class="grid">
+
+  <!-- Chart 1: 조건부 승률 비교 -->
+  <div class="card wide">
+    <h2>라운드별 조건부 승률 — 실제 데이터 vs 이론(50%)</h2>
+    <canvas id="winRateChart"></canvas>
+    <p class="note">
+      <strong style="color:#58a6ff">조건부 승률</strong>: 해당 라운드까지 도달했을 때 다음 캔들이 반전(승리)할 확률.<br>
+      라운드 N = streak 길이 (4+N)번째 캔들이 반전하는지 여부.<br>
+      이론(빨간 점선): 캔들이 독립적이고 각 방향 확률 = 50% 가정.
+    </p>
+  </div>
+
+  <!-- Chart 2: 라운드별 도달 횟수 (깔때기) -->
+  <div class="card">
+    <h2>라운드별 도달 횟수 (Funnel)</h2>
+    <canvas id="funnelChart"></canvas>
+    <p class="note">각 라운드까지 살아남은 트레이드 수. 매 라운드마다 절반 이상이 승리 후 빠져나감.</p>
+  </div>
+
+  <!-- Chart 3: 누적 PnL -->
+  <div class="card">
+    <h2>연간 누적 손익 (에쿼티 커브)</h2>
+    <canvas id="equityChart"></canvas>
+    <p class="note">연말 기준 누적 손익. 초기 자본 없이 복리 배팅.</p>
+  </div>
+
+  <!-- Stats 요약 -->
+  <div class="card">
+    <h2>전략 핵심 지표</h2>
+    <div class="stat-row"><span class="stat-label">총 트레이드</span><span class="stat-val">97,703회</span></div>
+    <div class="stat-row"><span class="stat-label">전체 승률</span><span class="stat-val green">99.98%</span></div>
+    <div class="stat-row"><span class="stat-label">10회 초과 패배</span><span class="stat-val red">24회 (0.02%)</span></div>
+    <div class="stat-row"><span class="stat-label">최종 누적 손익</span><span class="stat-val green">+$73,127</span></div>
+    <div class="stat-row"><span class="stat-label">최대 낙폭 (MDD)</span><span class="stat-val red">-$3,368</span></div>
+    <div class="stat-row"><span class="stat-label">시퀀스당 최대 손실</span><span class="stat-val red">-$1,023</span></div>
+    <div class="stat-row"><span class="stat-label">트레이드당 기대값</span><span class="stat-val green">+$0.75</span></div>
+    <div class="stat-row">
+      <span class="stat-label">가설 검증</span>
+      <span class="badge badge-green">지지됨 ✓</span>
+    </div>
+    <p class="note" style="margin-top:16px">
+      <strong style="color:#3fb950">가설:</strong> streak이 길어질수록 반전 확률이 이론(50%)보다 높아진다.<br>
+      → 실제 라운드 1~9 전 구간에서 <strong>54~62%</strong>로 이론 대비 유의미하게 높음.
+    </p>
+  </div>
+
+  <!-- Chart 4: 실제 승률 vs 이론 차이 (갭 차트) -->
+  <div class="card wide">
+    <h2>이론(50%) 대비 실제 초과 승률 (엣지)</h2>
+    <canvas id="edgeChart"></canvas>
+    <p class="note">
+      양수 = 이론보다 유리. 라운드 8(streak 12연속)에서 <strong style="color:#3fb950">+11.8%p</strong>로 최대 엣지 발생.<br>
+      라운드 10은 표본이 49개로 소수 주의.
+    </p>
+  </div>
+
+</div>
+
+<script>
+// ── 데이터 (시뮬레이션 결과) ────────────────────────────────────────────────
+const rounds = [1,2,3,4,5,6,7,8,9,10];
+const streakLen = rounds.map(r => 4 + r); // streak 총 길이
+
+// 라운드별 승리 수
+const wins =   [52873, 25104, 11110, 4892, 2110, 941, 380, 181, 63, 25];
+const losses = [0,     0,     0,     0,    0,    0,   0,   0,  0,  24];
+
+// 각 라운드 도달 횟수 (누적 빼기)
+const reached = [];
+let remaining = 97703;
+for (let i = 0; i < 10; i++) {
+  reached.push(remaining);
+  remaining -= wins[i];
+  if (i === 9) remaining -= losses[i];
+}
+
+// 조건부 승률
+const actualWinRate = rounds.map((_, i) => {
+  const total = wins[i] + (i === 9 ? losses[i] : 0) + (i < 9 ? reached[i] - wins[i] : 0);
+  return (wins[i] / reached[i] * 100).toFixed(2);
+});
+
+// 실은 그냥 wins[i]/reached[i]
+const conditionalRate = rounds.map((_, i) => +(wins[i] / reached[i] * 100).toFixed(2));
+const theoretical = rounds.map(() => 50);
+const edge = conditionalRate.map(r => +(r - 50).toFixed(2));
+
+// 연간 누적 PnL
+const years  = [2017,2018,2019,2020,2021,2022,2023,2024,2025,2026];
+const cumPnl = [1838,13038,24224,34264,43665,50941,60192,69844,72419,73127];
+
+// ── 공통 스타일 ──────────────────────────────────────────────────────────────
+Chart.defaults.color = '#8b949e';
+Chart.defaults.borderColor = '#30363d';
+const font = { family: 'Segoe UI', size: 12 };
+
+// ── Chart 1: 조건부 승률 ─────────────────────────────────────────────────────
+new Chart(document.getElementById('winRateChart'), {
+  type: 'line',
+  data: {
+    labels: rounds.map(r => `Round ${r}\n(streak ${4+r}개)`),
+    datasets: [
+      {
+        label: '실제 조건부 승률',
+        data: conditionalRate,
+        borderColor: '#58a6ff',
+        backgroundColor: 'rgba(88,166,255,0.12)',
+        borderWidth: 2.5,
+        pointRadius: 5,
+        pointBackgroundColor: '#58a6ff',
+        fill: true,
+        tension: 0.3,
+      },
+      {
+        label: '이론 확률 (50%)',
+        data: theoretical,
+        borderColor: '#f85149',
+        borderDash: [6,4],
+        borderWidth: 2,
+        pointRadius: 0,
+        fill: false,
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { labels: { font, color: '#e6edf3', usePointStyle: true } },
+      tooltip: {
+        callbacks: {
+          label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}%`,
+          afterBody: (items) => {
+            const i = items[0].dataIndex;
+            return [`도달 횟수: ${reached[i].toLocaleString()}회`, `승리: ${wins[i].toLocaleString()}회`];
+          }
+        }
+      }
+    },
+    scales: {
+      y: {
+        min: 45, max: 68,
+        ticks: { callback: v => v + '%', font },
+        grid: { color: '#21262d' },
+        title: { display: true, text: '조건부 승률 (%)', font, color: '#8b949e' }
+      },
+      x: { ticks: { font, maxRotation: 0 }, grid: { color: '#21262d' } }
+    }
+  }
+});
+
+// ── Chart 2: Funnel ──────────────────────────────────────────────────────────
+new Chart(document.getElementById('funnelChart'), {
+  type: 'bar',
+  data: {
+    labels: rounds.map(r => `R${r}`),
+    datasets: [{
+      label: '도달 횟수',
+      data: reached,
+      backgroundColor: rounds.map((_, i) => {
+        const alpha = 0.9 - i * 0.07;
+        return `rgba(88,166,255,${alpha})`;
+      }),
+      borderWidth: 0,
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y.toLocaleString()}회` } }
+    },
+    scales: {
+      y: {
+        type: 'logarithmic',
+        ticks: { callback: v => v.toLocaleString(), font },
+        grid: { color: '#21262d' },
+        title: { display: true, text: '도달 횟수 (log scale)', font, color: '#8b949e' }
+      },
+      x: { ticks: { font }, grid: { color: '#21262d' } }
+    }
+  }
+});
+
+// ── Chart 3: Equity ──────────────────────────────────────────────────────────
+new Chart(document.getElementById('equityChart'), {
+  type: 'line',
+  data: {
+    labels: years,
+    datasets: [{
+      label: '누적 손익 ($)',
+      data: cumPnl,
+      borderColor: '#3fb950',
+      backgroundColor: 'rgba(63,185,80,0.1)',
+      borderWidth: 2.5,
+      pointRadius: 4,
+      pointBackgroundColor: '#3fb950',
+      fill: true,
+      tension: 0.2,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { labels: { font, color: '#e6edf3' } },
+      tooltip: { callbacks: { label: ctx => ` $${ctx.parsed.y.toLocaleString()}` } }
+    },
+    scales: {
+      y: {
+        ticks: { callback: v => '$' + v.toLocaleString(), font },
+        grid: { color: '#21262d' },
+      },
+      x: { ticks: { font }, grid: { color: '#21262d' } }
+    }
+  }
+});
+
+// ── Chart 4: Edge ────────────────────────────────────────────────────────────
+new Chart(document.getElementById('edgeChart'), {
+  type: 'bar',
+  data: {
+    labels: rounds.map(r => `Round ${r}  (streak ${4+r}개)`),
+    datasets: [
+      {
+        label: '실제 초과 승률 (엣지)',
+        data: edge,
+        backgroundColor: edge.map(e => e >= 0 ? 'rgba(63,185,80,0.7)' : 'rgba(248,81,73,0.7)'),
+        borderColor:      edge.map(e => e >= 0 ? '#3fb950' : '#f85149'),
+        borderWidth: 1,
+        borderRadius: 4,
+      },
+      {
+        label: '이론 기준선 (0%p)',
+        data: rounds.map(() => 0),
+        type: 'line',
+        borderColor: '#f85149',
+        borderDash: [6,4],
+        borderWidth: 1.5,
+        pointRadius: 0,
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { labels: { font, color: '#e6edf3', usePointStyle: true } },
+      tooltip: {
+        callbacks: {
+          label: ctx => ` 엣지: +${ctx.parsed.y}%p`,
+          afterBody: (items) => {
+            const i = items[0].dataIndex;
+            return [`실제 승률: ${conditionalRate[i]}%`, `도달 횟수: ${reached[i].toLocaleString()}회`];
+          }
+        }
+      }
+    },
+    scales: {
+      y: {
+        ticks: { callback: v => (v >= 0 ? '+' : '') + v + '%p', font },
+        grid: { color: '#21262d' },
+        title: { display: true, text: '실제 승률 - 50% (엣지)', font, color: '#8b949e' }
+      },
+      x: { ticks: { font, maxRotation: 20 }, grid: { color: '#21262d' } }
+    }
+  }
+});
+</script>
+</body>
+</html>
