@@ -165,9 +165,12 @@ td:first-child, th:first-child { text-align: left; }
   <a href="./streak_dist.html" style="color:#58a6ff;text-decoration:none;font-weight:600;">Streak 분포</a>
   <a href="./streak_analysis.html" style="color:#8b949e;text-decoration:none;">조건부 승률</a>
 </nav>
+<div style="padding:10px 24px;background:#3d2f04;border-bottom:1px solid #d29922;font-size:0.78rem;color:#d29922;line-height:1.5;">
+  본 통계 분석은 교육/연구 목적입니다. 과거 패턴이 미래에 반복된다는 보장은 없으며, 마틴게일은 구조적 파산 리스크가 있습니다.
+</div>
 <header>
   <h1>BTC/USDT 5분봉 — Streak 발생 횟수: 이론 기댓값 vs 실제 통계</h1>
-  <div class="sub">X축: streak 길이 · Y축: 발생 횟수 · 이론 = 독립 1/2 게임 기댓값 · 실제 = 캔들 데이터 통계</div>
+  <div class="sub">마틴게일 전략의 전제 조건 검증: BTC 가격 움직임이 독립적 동전 던지기(1/2)와 얼마나 다른가?<br>X축: streak 길이 · Y축: 발생 횟수 · 이론 = 독립 1/2 게임 기댓값 · 실제 = 캔들 데이터 통계</div>
 </header>
 
 <div class="range-slider-wrap">
@@ -185,9 +188,9 @@ td:first-child, th:first-child { text-align: left; }
 
 <div class="stats-bar">
   <div class="stat"><div class="lbl">선택 기간 캔들 수</div><div class="val blue" id="sCandleCount">—</div></div>
-  <div class="stat"><div class="lbl">총 streak 수 (2+)</div><div class="val blue" id="sTotalStreaks">—</div></div>
+  <div class="stat"><div class="lbl">총 streak 수 (2연속 이상)</div><div class="val blue" id="sTotalStreaks">—</div></div>
   <div class="stat"><div class="lbl">최대 streak 길이</div><div class="val yellow" id="sMaxStreak">—</div></div>
-  <div class="stat"><div class="lbl">이론 vs 실제 가장 큰 괴리</div><div class="val red" id="sMaxDiff">—</div></div>
+  <div class="stat"><div class="lbl">이론 대비 실제 최대 차이</div><div class="val red" id="sMaxDiff">—</div></div>
 </div>
 
 <div class="chart-wrap">

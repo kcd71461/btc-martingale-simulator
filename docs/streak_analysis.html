@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BTC 5분봉 마틴게일 - 실제 vs 이론 확률</title>
+<title>BTC 5분봉 — 라운드별 조건부 승률 분석</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -38,10 +38,11 @@
   <a href="./streak_analysis.html" style="color:#58a6ff;text-decoration:none;font-weight:600;">조건부 승률</a>
 </nav>
 <div style="padding:10px 16px;background:#3d2f04;border:1px solid #d29922;border-radius:8px;font-size:0.78rem;color:#d29922;line-height:1.5;margin-bottom:20px;">
-  이 페이지는 정적 분석 결과입니다 (streak=4, 최대 10회, $1, 2017-2026 기간 고정). 파라미터 변경은 시뮬레이터 페이지를 사용하세요.
+  이 페이지는 정적 분석 결과입니다 (streak=4, 최대 10회, $1, 2017-2026 기간 고정). 파라미터 변경은 시뮬레이터 페이지를 사용하세요.<br>
+  과거 데이터에서 관측된 패턴이 미래에 지속된다는 보장은 없습니다. 마틴게일은 구조적 파산 리스크가 있습니다.
 </div>
-<h1>BTC/USDT 5분봉 — 마틴게일 시뮬레이션</h1>
-<p class="subtitle">전략: 4연속 streak → 반대 포지션 | $1 시작, 최대 10회 | 2017-08-17 ~ 2026-03-27</p>
+<h1>BTC/USDT 5분봉 — 라운드별 조건부 승률 분석</h1>
+<p class="subtitle">핵심 질문: streak이 길어질수록 반전 확률이 50%보다 높아지는가? | 4연속 streak → 반대 포지션 | $1 시작, 최대 10회 | 2017-08-17 ~ 2026-03-27</p>
 
 <div class="grid">
 
@@ -67,7 +68,7 @@
   <div class="card">
     <h2>연간 누적 손익 (에쿼티 커브)</h2>
     <canvas id="equityChart"></canvas>
-    <p class="note">연말 기준 누적 손익. 초기 자본 없이 복리 배팅.</p>
+    <p class="note">연말 기준 누적 손익. 고정 $1 기준 마틴게일 배팅 (복리 아님).</p>
   </div>
 
   <!-- Stats 요약 -->
@@ -75,7 +76,7 @@
     <h2>전략 핵심 지표</h2>
     <div class="stat-row"><span class="stat-label">총 트레이드</span><span class="stat-val">97,703회</span></div>
     <div class="stat-row"><span class="stat-label">전체 승률</span><span class="stat-val green">99.98%</span></div>
-    <div class="stat-row"><span class="stat-label">10회 초과 패배</span><span class="stat-val red">24회 (0.02%)</span></div>
+    <div class="stat-row"><span class="stat-label">최대 라운드 소진 패배</span><span class="stat-val red">24회 (0.02%)</span></div>
     <div class="stat-row"><span class="stat-label">최종 누적 손익</span><span class="stat-val green">+$73,127</span></div>
     <div class="stat-row"><span class="stat-label">최대 낙폭 (MDD)</span><span class="stat-val red">-$3,368</span></div>
     <div class="stat-row"><span class="stat-label">시퀀스당 최대 손실</span><span class="stat-val red">-$1,023</span></div>
@@ -292,7 +293,7 @@ new Chart(document.getElementById('edgeChart'), {
       legend: { labels: { font, color: '#e6edf3', usePointStyle: true } },
       tooltip: {
         callbacks: {
-          label: ctx => ` 엣지: +${ctx.parsed.y}%p`,
+          label: ctx => ` 엣지: ${ctx.parsed.y >= 0 ? '+' : ''}${ctx.parsed.y}%p`,
           afterBody: (items) => {
             const i = items[0].dataIndex;
             return [`실제 승률: ${conditionalRate[i]}%`, `도달 횟수: ${reached[i].toLocaleString()}회`];

@@ -35,10 +35,10 @@ h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 8px; }
 </head>
 <body>
 
-<h1>BTC/USDT 5분봉 분석</h1>
+<h1>BTC/USDT 5분봉 마틴게일 전략 검증</h1>
 <p class="sub">
-  Binance BTC/USDT 5분봉 데이터 (2017~현재) 기반<br>
-  모든 계산은 브라우저에서 실행 · 서버 불필요 · 최초 방문 시 Binance API에서 데이터 자동 수집
+  Polymarket 등 예측 시장에서 마틴게일 전략이 실제로 유효한지 검증하기 위한 분석 도구<br>
+  Binance BTC/USDT 5분봉 데이터 (2017-08 ~ 최신) 기반 · 모든 계산은 브라우저에서 실행 · 서버 불필요
 </p>
 
 <div class="cards">
@@ -47,7 +47,7 @@ h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 8px; }
     <p>
       N연속 streak 발생 시 반대 포지션 진입하는 마틴게일 전략 시뮬레이션.
       첫 배팅 금액, 최소 streak, 최대 배팅 횟수, 기간 조절 가능.
-      에쿼티 커브 + 손실 위험 분석.
+      누적 손익 곡선 + 손실 위험 분석.
     </p>
     <span class="tag tag-blue">인터랙티브</span>
   </a>
@@ -73,7 +73,8 @@ h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 8px; }
 
 <div class="footer">
   데이터 소스: <a href="https://www.binance.com" target="_blank">Binance</a> REST API (Klines)<br>
-  최초 방문 시 ~2분간 데이터 수신 후 IndexedDB에 캐시 · 이후 즉시 로드
+  최초 방문 시 ~2분간 데이터 수신 후 IndexedDB에 캐시 · 이후 즉시 로드<br><br>
+  본 도구는 교육/연구 목적으로 제작되었습니다. 마틴게일은 구조적 파산 위험이 있으며, 과거 데이터 분석 결과가 미래 수익을 보장하지 않습니다.
 </div>
 
 </body>

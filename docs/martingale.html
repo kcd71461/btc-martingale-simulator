@@ -99,7 +99,7 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14p
 </div>
 <header>
   <h1>BTC/USDT 5분봉 마틴게일 시뮬레이터</h1>
-  <span class="sub">전체 계산 브라우저 인메모리 · 서버 통신 없음</span>
+  <span class="sub">N연속 동일 방향(streak) 발생 시 반대 포지션 진입 · 패배 시 2배 배팅(마틴게일) · 전체 계산 브라우저 인메모리</span>
 </header>
 
 <div class="controls">
@@ -131,12 +131,13 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14p
   <div class="stat"><div class="lbl">총 트레이드</div><div class="val blue" id="sTrades">—</div></div>
   <div class="stat"><div class="lbl">승률</div><div class="val green" id="sWinRate">—</div></div>
   <div class="stat"><div class="lbl">최종 손익</div><div class="val" id="sFinalPnl">—</div></div>
-  <div class="stat"><div class="lbl">MDD</div><div class="val red" id="sMdd">—</div></div>
-  <div class="stat"><div class="lbl">최대 손실/시퀀스</div><div class="val red" id="sMaxLoss">—</div></div>
-  <div class="stat"><div class="lbl">기대값/트레이드</div><div class="val" id="sEv">—</div></div>
+  <div class="stat"><div class="lbl">MDD (최대 낙폭)</div><div class="val red" id="sMdd">—</div></div>
+  <div class="stat"><div class="lbl">연패 시 최대 누적 손실</div><div class="val red" id="sMaxLoss">—</div></div>
+  <div class="stat"><div class="lbl">트레이드당 평균 손익</div><div class="val" id="sEv">—</div></div>
 </div>
 
 <div class="section">
+  <div class="section-title" style="font-size:0.82rem;color:#8b949e;margin-bottom:8px;">누적 손익 곡선 (시간순)</div>
   <div class="chart-main"><canvas id="mainChart"></canvas></div>
 </div>
 
