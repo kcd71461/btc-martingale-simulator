@@ -1,14 +1,13 @@
 # BTC/USDT 5분봉 마틴게일 전략 검증
 
 Polymarket 등 예측 시장에서 마틴게일 전략이 실제로 유효한지 검증하기 위한 분석 도구입니다.
-Binance BTC/USDT 5분봉 캔들 데이터(2017년 8월~최신)를 기반으로 전략의 수익성과 리스크를 시뮬레이션합니다.
+Binance BTC/USDT 5분봉 캔들 데이터(2017-08 ~ 2026-03, 약 90만개)가 내장되어 있으며, 모든 계산은 브라우저에서 실행됩니다.
 
-## GitHub Pages (서버 불필요)
+## GitHub Pages (서버/API 불필요)
 
 https://kcd71461.github.io/btc-martingale-simulator/
 
-브라우저에서 Binance API로 직접 캔들 데이터를 수집하여 IndexedDB에 캐시합니다.
-최초 방문 시 ~2분 소요, 이후 즉시 로드.
+캔들 데이터가 compact 포맷(16MB)으로 내장되어 있어 외부 API 호출 없이 즉시 동작합니다.
 
 ## 페이지 구성
 
@@ -66,7 +65,8 @@ Round 1: $1 → Round 2: $2 → Round 3: $4 → ... → Round 10: $512
 │   ├── martingale.html                 # 마틴게일 시뮬레이터
 │   ├── streak_dist.html                # Streak 분포: 이론 vs 실제
 │   ├── streak_analysis.html            # 조건부 승률 분석 (정적)
-│   └── candle-loader.js                # Binance API → IndexedDB 캐시 로더
+│   ├── candle-loader.js                # 내장 캔들 데이터 로더
+│   └── candles-compact.json           # 5분봉 캔들 데이터 (16MB, compact 포맷)
 ├── src/                                # 서버 기반 버전
 │   ├── index.ts                        # Express 서버 진입점
 │   ├── db.ts                           # SQLite DB 스키마 및 버퍼 라이터
@@ -115,7 +115,7 @@ npx tsx src/analysis/martingale_sim.ts      # 마틴게일 시뮬레이션
 ## 기술 스택
 
 - **프론트엔드**: Vanilla JS + Chart.js (브라우저 인메모리 계산)
-- **데이터**: Binance REST API (Klines) + IndexedDB 캐시
+- **데이터**: Binance BTC/USDT 5분봉 내장 (compact JSON, 90만개 캔들)
 - **서버 (옵션)**: Node.js + TypeScript + Express + SQLite
 - **배포**: GitHub Pages (`docs/` 폴더)
 
