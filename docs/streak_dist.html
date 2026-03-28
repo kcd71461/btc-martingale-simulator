@@ -190,7 +190,7 @@ td:first-child, th:first-child { text-align: left; }
   <div class="stat"><div class="lbl">선택 기간 캔들 수</div><div class="val blue" id="sCandleCount">—</div></div>
   <div class="stat"><div class="lbl">총 streak 수 (2연속 이상)</div><div class="val blue" id="sTotalStreaks">—</div></div>
   <div class="stat"><div class="lbl">최대 streak 길이</div><div class="val yellow" id="sMaxStreak">—</div></div>
-  <div class="stat"><div class="lbl">이론 대비 실제 최대 차이</div><div class="val red" id="sMaxDiff">—</div></div>
+  <div class="stat"><div class="lbl">이론 대비 최대 절대 차이</div><div class="val red" id="sMaxDiff">—</div></div>
 </div>
 
 <div class="chart-wrap">
@@ -440,7 +440,11 @@ function run() {
   document.getElementById('sCandleCount').textContent = candles.length.toLocaleString() + '개';
   document.getElementById('sTotalStreaks').textContent = totalStreaks.toLocaleString() + '회';
   document.getElementById('sMaxStreak').textContent = maxActual + '연속';
-  document.getElementById('sMaxDiff').textContent = `streak ${maxDiffK}에서 ${maxDiffVal.toFixed(1)}회`;
+  const maxDiffAct = actual[maxDiffK] || 0;
+  const maxDiffTheo = theoreticalExpected(nDirectional, maxDiffK);
+  const maxDiffSign = maxDiffAct >= maxDiffTheo ? '+' : '-';
+  const maxDiffDir = maxDiffAct >= maxDiffTheo ? '실제 초과' : '실제 미달';
+  document.getElementById('sMaxDiff').textContent = `streak ${maxDiffK}에서 ${maxDiffSign}${maxDiffVal.toFixed(1)}회 (${maxDiffDir})`;
   updateSliderFill();
 
   if (chart) chart.destroy();

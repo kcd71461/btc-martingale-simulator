@@ -93,7 +93,7 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14p
 
 <div class="controls">
   <div class="ctrl-group">
-    <label>최소 streak 수 (트리거)</label>
+    <label>진입 조건: N연속 동일 방향</label>
     <div class="row">
       <input type="range" id="minStreak" min="2" max="15" value="4">
       <span class="val-badge" id="minStreakVal">4</span>
@@ -101,7 +101,7 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14p
     </div>
   </div>
   <div class="ctrl-group">
-    <label>최대 배팅 횟수</label>
+    <label>시퀀스당 최대 라운드</label>
     <div class="row">
       <input type="range" id="maxRounds" min="1" max="15" value="10">
       <span class="val-badge" id="maxRoundsVal">10</span>
@@ -117,12 +117,12 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14p
 </div>
 
 <div class="stats-bar">
-  <div class="stat"><div class="lbl">총 트레이드</div><div class="val blue" id="sTrades">—</div></div>
-  <div class="stat"><div class="lbl">승률</div><div class="val green" id="sWinRate">—</div></div>
+  <div class="stat"><div class="lbl">총 시퀀스 수</div><div class="val blue" id="sTrades">—</div></div>
+  <div class="stat" style="border-right:2px solid #30363d;"><div class="lbl">시퀀스 승률</div><div class="val green" id="sWinRate">—</div><div style="font-size:0.6rem;color:#6e7681;margin-top:2px;">최대 라운드 내 1회 이상 반전 성공</div></div>
   <div class="stat"><div class="lbl">최종 손익</div><div class="val" id="sFinalPnl">—</div></div>
-  <div class="stat"><div class="lbl">MDD</div><div class="val red" id="sMdd">—</div></div>
-  <div class="stat"><div class="lbl">최대 손실/시퀀스</div><div class="val red" id="sMaxLoss">—</div></div>
-  <div class="stat"><div class="lbl">기대값/트레이드</div><div class="val" id="sEv">—</div></div>
+  <div class="stat"><div class="lbl">MDD (최대 낙폭)</div><div class="val red" id="sMdd">—</div><div style="font-size:0.6rem;color:#6e7681;margin-top:2px;">전체 기간 누적 손익의 고점 대비 최대 하락</div></div>
+  <div class="stat"><div class="lbl">시퀀스당 최대 손실</div><div class="val red" id="sMaxLoss">—</div><div style="font-size:0.6rem;color:#6e7681;margin-top:2px;">1회 마틴게일 시퀀스 전패 시 고정 손실액</div></div>
+  <div class="stat"><div class="lbl">시퀀스당 평균 손익</div><div class="val" id="sEv">—</div></div>
 </div>
 
 <div class="section">
@@ -143,9 +143,9 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14p
 </div>
 
 <div class="sub-section">
-  <h3>손실 위험 분석 — 시작 시점별 최저 PnL 도달 확률</h3>
+  <h3>손실 위험 분석 — "이 시점에 시작했다면 얼마나 잃었을까?"</h3>
   <p style="font-size:0.78rem;color:#8b949e;margin-bottom:14px;">
-    각 5분봉을 시작 시점으로 잡았을 때, 전략 운용 중 누적 PnL이 입력 금액 이하로 떨어진 적이 있는 시작 시점의 비율
+    과거의 각 5분봉 시점에서 이 전략을 시작했다고 가정할 때, 운용 도중 누적 손익이 아래 임계값 이하로 떨어진 적이 있는 시작 시점의 비율을 계산합니다.
   </p>
   <div class="sub-controls">
     <div class="ctrl-group">
@@ -160,7 +160,7 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14p
     <div class="sub-stat"><div class="lbl">분석 시작 시점 수 (5분 단위)</div><div class="val blue" id="ssTotal">—</div></div>
     <div class="sub-stat"><div class="lbl">임계값 이하 도달 비율</div><div class="val red" id="ssBustPct">—</div></div>
     <div class="sub-stat"><div class="lbl">도달 시점 수</div><div class="val red" id="ssBustCnt">—</div></div>
-    <div class="sub-stat"><div class="lbl">안전 비율</div><div class="val green" id="ssSafePct">—</div></div>
+    <div class="sub-stat"><div class="lbl">임계값 미도달 비율 (안전)</div><div class="val green" id="ssSafePct">—</div></div>
   </div>
   <div class="chart-sub"><canvas id="subChart"></canvas></div>
 </div>
@@ -359,7 +359,7 @@ function fmtMoney(n, decimals = 2) {
 }
 
 function updateStats(stats) {
-  document.getElementById('sTrades').textContent   = stats.totalTrades.toLocaleString() + '회';
+  document.getElementById('sTrades').textContent   = stats.totalTrades.toLocaleString() + '개';
   document.getElementById('sWinRate').textContent  = (stats.winRate * 100).toFixed(2) + '%';
   const pEl = document.getElementById('sFinalPnl');
   pEl.textContent = fmtMoney(stats.finalPnl); pEl.className = 'val ' + (stats.finalPnl >= 0 ? 'green' : 'red');
